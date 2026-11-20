@@ -3,6 +3,7 @@ import { Prisma } from '../../generated/prisma/client.js';
 import type { ActorContext } from '../../common/context/actor.js';
 import type { AppError } from '../../common/exceptions/app-error.js';
 import { BusinessRuleError, ConflictError } from '../../common/exceptions/app-error.js';
+import { invalidateDashboards } from '../analytics/dashboard.service.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
 import { getQueue, QueueName } from '../../infrastructure/queues/queues.js';
 import { logger } from '../../config/logger.js';
@@ -96,6 +97,8 @@ export async function recordEvent(
       details: (e.details ?? undefined) as Prisma.InputJsonValue | undefined,
     },
   });
+  // Every registration change goes through here; dashboards recompute on their next read.
+  invalidateDashboards();
 }
 
 /**

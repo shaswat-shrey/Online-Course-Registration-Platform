@@ -137,6 +137,7 @@ model User {
   gradeSubmissionsSubmitted FinalGradeSubmission[] @relation("GradeSubmitter")
   gradeSubmissionsDecided   FinalGradeSubmission[] @relation("GradeDecider")
   gradeChangesMade          GradeChange[]
+  exportJobs                ExportJob[]
 
   @@index([status])
   @@map("users")
@@ -934,6 +935,7 @@ model StoredFile {
   materials         SectionMaterial[]
   messageAttachment MessageAttachment?
   ticketAttachment  TicketAttachment?
+  exportJob         ExportJob?
 
   @@index([ownerId, context])
   @@index([status, createdAt])
@@ -2183,4 +2185,43 @@ model GradeChange {
 
   @@unique([academicRecordId, version])
   @@map("grade_changes")
+}
+
+// ============================================================
+// Phase 11 — reporting (DATABASE.md §3.9)
+// ============================================================
+
+enum ExportFormat {
+  CSV
+  XLSX
+}
+
+enum ExportStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// A report export (FR-RPT-003); large ones run on the `exports` queue.
+model ExportJob {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  requestedById String       @map("requested_by_id") @db.Uuid
+  reportKey     String       @map("report_key") @db.VarChar(60)
+  format        ExportFormat
+  /// Filters and sort as submitted (validated against the report on run).
+  params        Json
+  status        ExportStatus @default(QUEUED)
+  rowCount      Int?         @map("row_count")
+  fileId        String?      @unique @map("file_id") @db.Uuid
+  error         String?      @db.VarChar(1000)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt   DateTime?    @map("completed_at") @db.Timestamptz(3)
+
+  requestedBy User        @relation(fields: [requestedById], references: [id])
+  file        StoredFile? @relation(fields: [fileId], references: [id])
+
+  @@index([requestedById, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("export_jobs")
 }

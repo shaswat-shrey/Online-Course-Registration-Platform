@@ -12,6 +12,7 @@ import {
   reconcileCounters,
   sweepWaitlists,
 } from './modules/registrations/waitlist.service.js';
+import { processExport } from './modules/reports/exports.service.js';
 import { closeResolvedTickets } from './modules/support/tickets.service.js';
 import { purgeOldNotifications } from './modules/notifications/notifications.service.js';
 import {
@@ -48,6 +49,10 @@ const processors: Partial<Record<QueueName, { processor: Processor; concurrency:
           throw new Error(`Unknown waitlist job: ${job.name}`);
       }
     },
+  },
+  [QueueName.EXPORTS]: {
+    concurrency: 1,
+    processor: async (job: Job<{ jobId: string }>) => processExport(job.data.jobId),
   },
   [QueueName.ANNOUNCEMENTS]: {
     concurrency: 2,
