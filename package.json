@@ -1,0 +1,43 @@
+{
+  "name": "ucrams",
+  "private": true,
+  "version": "0.1.0",
+  "description": "University Course Registration & Academic Management System",
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "npm run build -w @ucrams/shared && concurrently -n shared,api,worker,web -c gray,blue,magenta,green \"npm run dev -w @ucrams/shared\" \"npm run dev -w @ucrams/api\" \"npm run dev:worker -w @ucrams/api\" \"npm run dev -w @ucrams/web\"",
+    "build": "npm run build -w @ucrams/shared && npm run build -w @ucrams/api && npm run build -w @ucrams/web",
+    "typecheck": "npm run build -w @ucrams/shared && npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run build -w @ucrams/shared && npm run test --workspaces --if-present",
+    "test:api": "npm run test -w @ucrams/api",
+    "test:web": "npm run test -w @ucrams/web",
+    "test:e2e": "playwright test",
+    "db:migrate": "npm run db:migrate -w @ucrams/api",
+    "db:deploy": "npm run db:deploy -w @ucrams/api",
+    "db:seed": "npm run db:seed -w @ucrams/api",
+    "db:studio": "npm run db:studio -w @ucrams/api"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "concurrently": "^10.0.7",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.73.0"
+  }
+}
