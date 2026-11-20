@@ -146,13 +146,14 @@ This builds the `api`, `worker` and `web` images, runs `prisma migrate deploy` a
 
 `npm run db:seed` creates the university structure (9 faculties, 32 departments, 16 degrees, 32 programs, 33 specializations), the 2025–2027 academic calendar, example grading scales, and one account per role. All use the password in `SEED_DEV_PASSWORD` (`apps/api/.env`; the example value is `Ucrams-Dev-Pass-2026`). **Development only:** the seed refuses to run with `NODE_ENV=production`.
 
-| Role                     | Email                     | Lands on             |
-| ------------------------ | ------------------------- | -------------------- |
-| Super Administrator      | `superadmin@ucrams.local` | `/admin/dashboard`   |
-| University Administrator | `uniadmin@ucrams.local`   | `/admin/dashboard`   |
-| Academic Administrator   | `registrar@ucrams.local`  | `/admin/dashboard`   |
-| Faculty Member           | `faculty.cs@ucrams.local` | `/faculty/dashboard` |
-| Student                  | `student.cs@ucrams.local` | `/student/dashboard` |
+| Role                                             | Email                     | Lands on             |
+| ------------------------------------------------ | ------------------------- | -------------------- |
+| Super Administrator                              | `superadmin@ucrams.local` | `/admin/dashboard`   |
+| University Administrator                         | `uniadmin@ucrams.local`   | `/admin/dashboard`   |
+| Academic Administrator                           | `registrar@ucrams.local`  | `/admin/dashboard`   |
+| Department Administrator (Computer Science only) | `cs.admin@ucrams.local`   | `/admin/dashboard`   |
+| Faculty Member                                   | `faculty.cs@ucrams.local` | `/faculty/dashboard` |
+| Student                                          | `student.cs@ucrams.local` | `/student/dashboard` |
 
 To restore system roles to their default permissions after experimenting: `npx tsx prisma/seed/index.ts --reset-roles` (run in `apps/api`).
 
