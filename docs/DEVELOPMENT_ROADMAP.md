@@ -1,7 +1,7 @@
 # Development Roadmap
 
-**Current phase:** Phase 0 — Product discovery and planning (deliverables complete, **awaiting review**)
-**Next phase:** Phase 1 — Project foundation (starts after Phase 0 review)
+**Current phase:** Phase 1 — Project foundation (**complete**, 2026-11-20)
+**Next phase:** Phase 2 — Authentication and access control
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -17,25 +17,30 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - [x] API conventions ([API.md](API.md))
 - [x] Architecture ([ARCHITECTURE.md](ARCHITECTURE.md)), security ([SECURITY.md](SECURITY.md)), testing ([TESTING.md](TESTING.md))
 - [x] Roadmap and phase task lists (this file)
-- [ ] **Review and sign-off by the project owner** ← blocking Phase 1
+- [x] Review and sign-off by the project owner (2026-11-20: approved with default answers to the open questions)
 
 ## Phase 1 — Project foundation
-- [ ] Root npm workspaces (`apps/api`, `apps/web`, `packages/shared`), `.nvmrc`, `.editorconfig`, Prettier, ESLint (flat config), strict `tsconfig.base.json`
-- [ ] `packages/shared`: build setup, response envelope types, error codes, pagination schema, enums
-- [ ] API skeleton: config (Zod env), Pino logger, `app.ts` middleware chain, error handler, `AppError` hierarchy, 404 handler, request IDs, `/health/live|ready`
-- [ ] Prisma setup, initial migration (extensions: `citext`, `pg_trgm`), `University` model only to prove the pipeline
-- [ ] Redis client(s) with graceful degradation; BullMQ queue factory; `worker.ts` boot with a no-op heartbeat job
-- [ ] Storage service interface + S3 implementation + test implementation
-- [ ] Mailer with Mailpit config
-- [ ] OpenAPI generation + Swagger UI at `/api/docs`
-- [ ] Socket.IO server bootstrap (auth handshake stub rejected until Phase 2)
-- [ ] Web skeleton: Vite + React + TS, Tailwind, shadcn/ui init, router with portal layouts, TanStack Query provider, Axios client, theme tokens, 404/403 pages
-- [ ] Vitest (api, web), Supertest, Playwright config; one smoke test each
-- [ ] `docker-compose.yml` (postgres, redis, minio, mailpit) + Dockerfiles for api/worker/web + nginx.conf
-- [ ] Native (no-Docker) dev path documented: Homebrew Redis + existing PostgreSQL 17
-- [ ] `.env.example`, README setup instructions
-- [ ] CI workflow (GitHub Actions): lint, typecheck, test
-- [ ] Exit: `npm run dev` brings up api+worker+web; health ready; tests/typecheck/lint green
+- [x] Root npm workspaces (`apps/api`, `apps/web`, `packages/shared`), `.nvmrc`, `.editorconfig`, Prettier, ESLint (flat config), strict `tsconfig.base.json`
+- [x] `packages/shared`: response envelope types, error codes, pagination/sort query schemas (+ tests)
+- [x] API skeleton: Zod env validation (production safety checks), Pino with redaction, `app.ts` middleware chain, error handler, `AppError` hierarchy, 404 handler, request IDs, `/api/v1/health/live|ready`
+- [x] `defineRoute` helper: typed Zod validation, **mandatory access declaration**, automatic OpenAPI registration
+- [x] Prisma 7 + pg adapter, init migration (`citext`, `pg_trgm`, `universities`), idempotent seed, public `GET /university/public`
+- [x] Redis clients with fail-fast cache client; Redis rate limiter with in-memory insurance; BullMQ queue factory; `worker.ts` with email + maintenance heartbeat
+- [x] Storage interface + S3 driver + local signed-URL driver (dev)
+- [x] Mailer (SMTP or log transport)
+- [x] OpenAPI 3.1 generation + Swagger UI at `/api/docs` (disabled in production)
+- [x] Socket.IO server with Redis adapter (handshake rejects all clients until Phase 2 auth)
+- [x] Web skeleton: Vite + React 19 + TS, Tailwind 4 design tokens (light/dark), shadcn/ui, router with lazy routes and error boundary, TanStack Query, Axios client with `ApiError` normalization, theme store, shared states (empty/error/loading), status badge, 404/403 pages, live system-status page
+- [x] Vitest (shared 6, API 31 incl. DB/Redis/BullMQ/Socket.IO integration, web 9 with MSW), Playwright smoke (6 runs: desktop + mobile)
+- [x] `docker-compose.yml` (postgres, redis, minio, mailpit + `app` profile), Dockerfiles (api/worker, web), `nginx.conf`
+- [x] Native (no-Docker) dev path: Homebrew Redis + PostgreSQL 17 (documented in README)
+- [x] `.env.example`, `.env.docker.example`, README setup instructions
+- [x] CI workflow (GitHub Actions): lint, format, typecheck, tests, build, migrate+seed, E2E, audit; separate Docker image build job
+- [x] Exit: `npm run dev` brings up shared+api+worker+web; readiness `ok`; typecheck, lint, format, unit/integration and E2E all green; compiled API boots with `NODE_ENV=production`
+
+**Verified manually:** status page in browser (dark/light, 375 px mobile), 404 page, Swagger UI, worker heartbeat written to Redis, production build refuses example secrets and serves JSON logs with docs disabled.
+
+**Not verified (no Docker on dev machine):** `docker compose` infra and `app` profile, image builds (CI job added; first run pending a push).
 
 ## Phase 2 — Authentication and access control
 - [ ] Models: User, Role, Permission, RolePermission, UserRole, Session, RefreshToken, AuthToken, LoginAttempt, AuditLog
@@ -152,13 +157,36 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 6. OK to install Redis via Homebrew for local development (Docker is not installed)? Alternatively install Docker Desktop/OrbStack to use the compose setup.
 
 ## Known bugs
-_None (no code yet)._
+_None known._
 
 ## Technical debt
-_None yet._
+| ID | Item | Plan |
+|---|---|---|
+| TD-001 | Root `overrides` pins `effect@3.22.5` under `@prisma/config` to fix GHSA-7589-6fvf-x4pw (ReDoS) in Prisma 7.10.1's CLI config loader; `npm ls` reports it as "invalid" | Remove when Prisma ships a patched release |
+| TD-002 | Web entry chunk is ~610 kB (191 kB gzip); Vite warns above 500 kB | Split per portal with lazy routes + `manualChunks` once portals exist (Phase 2/7/8) |
+| TD-003 | S3 presigned URLs use `S3_ENDPOINT`; inside Compose that is `http://minio:9000`, which browsers cannot reach | Add `S3_PUBLIC_ENDPOINT` for presigning when uploads land (Phase 4/7) |
+| TD-004 | Docker Compose stack and images not yet exercised locally | First CI run builds images; full stack check in Phase 13 or when Docker is available |
+| TD-005 | The `local` storage driver is allowed with `NODE_ENV=production` | Decide in Phase 13: refuse it, or support single-server deployments explicitly |
 
 ## Architectural decisions
 See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summary) (ADR-001 … ADR-013).
 
+## Phase 1 implementation decisions
+| Decision | Reason |
+|---|---|
+| TypeScript 6.0 (not 7.0) | `typescript-eslint` supports `<6.1`; TS 7 (native port) breaks linting |
+| Prisma 7.10.1 (not the 8.0 RC tagged `latest`) | Stable release; Prisma 7 requires the `@prisma/adapter-pg` driver adapter and `prisma.config.ts` |
+| `prisma` CLI is a runtime dependency of the API | `prisma migrate deploy` runs from the production image in the release step |
+| Generated Prisma client is not committed (`src/generated/`) | Regenerated by `build`/`typecheck` scripts |
+| Env vars `API_PORT`/`API_HOST` instead of `PORT`/`HOST` | Dev tooling exported `PORT=5173` and silently moved the API onto the web port |
+| Health endpoints live under `/api/v1/health/*` | Single prefix for Nginx proxying and the Vite dev proxy |
+| `defineRoute` refuses routes without an `access` declaration and registers OpenAPI paths | Default-deny groundwork (SECURITY.md §7) and docs that cannot drift; a test checks the manifest |
+| Local filesystem storage driver with HMAC-signed URLs | Docker/MinIO unavailable locally; same `StorageService` interface as S3 |
+| `MAIL_TRANSPORT=log` default | Works without Mailpit; `smtp` for real delivery |
+| Readiness: DB + Redis required (`down` → 503), storage failure → `degraded` | Uploads failing shouldn't take the whole API out of rotation |
+| Vite dev proxy for `/api` and `/socket.io` | Same-origin in development, matching Nginx in production; no CORS needed for the SPA |
+| Root route renders a live system-status page | Phase 1 has no authentication; a real data-backed page instead of placeholder portals |
+
 ## Changelog
+- 2026-11-20 — Phase 1 complete: monorepo, API foundation, worker, storage, mail, sockets, OpenAPI, web shell, tests (52 + 6 E2E), Docker/CI files.
 - 2026-11-20 — Phase 0 deliverables created: SRS, Architecture, Database (ERD), API, Security, Testing, Roles & Permissions, Roadmap, README.

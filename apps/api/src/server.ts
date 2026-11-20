@@ -14,12 +14,12 @@ async function main() {
   const httpServer = createServer(app);
   const sockets = attachSocketServer(httpServer);
 
-  httpServer.listen(env.PORT, env.HOST, () => {
+  httpServer.listen(env.API_PORT, env.API_HOST, () => {
     logger.info(
-      { port: env.PORT, env: env.NODE_ENV },
-      `API listening on http://localhost:${env.PORT}`,
+      { port: env.API_PORT, env: env.NODE_ENV },
+      `API listening on http://localhost:${env.API_PORT}`,
     );
-    if (env.API_DOCS_ENABLED) logger.info(`API docs at http://localhost:${env.PORT}/api/docs`);
+    if (env.API_DOCS_ENABLED) logger.info(`API docs at http://localhost:${env.API_PORT}/api/docs`);
   });
 
   let shuttingDown = false;

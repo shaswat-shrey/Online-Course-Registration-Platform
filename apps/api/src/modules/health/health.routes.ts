@@ -56,12 +56,10 @@ defineRoute(
   async (_req, res) => {
     const status = await getReadiness();
     // A 503 still uses the success envelope shape so probes can read the checks.
-    res
-      .status(status.status === 'down' ? 503 : 200)
-      .json({
-        success: status.status !== 'down',
-        message: `Status: ${status.status}`,
-        data: status,
-      });
+    res.status(status.status === 'down' ? 503 : 200).json({
+      success: status.status !== 'down',
+      message: `Status: ${status.status}`,
+      data: status,
+    });
   },
 );

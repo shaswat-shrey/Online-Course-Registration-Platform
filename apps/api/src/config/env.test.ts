@@ -10,7 +10,7 @@ const base = {
 describe('parseEnv', () => {
   it('applies defaults for optional settings', () => {
     const env = parseEnv(base);
-    expect(env.PORT).toBe(4000);
+    expect(env.API_PORT).toBe(4000);
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:5173']);
     expect(env.STORAGE_DRIVER).toBe('local');
   });

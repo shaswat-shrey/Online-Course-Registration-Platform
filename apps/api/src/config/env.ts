@@ -17,8 +17,8 @@ export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     APP_VERSION: z.string().default('0.1.0'),
-    PORT: z.coerce.number().int().min(1).max(65535).default(4000),
-    HOST: z.string().default('0.0.0.0'),
+    API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+    API_HOST: z.string().default('0.0.0.0'),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
@@ -64,7 +64,7 @@ export const envSchema = z
       const secrets = {
         STORAGE_SIGNING_SECRET: env.STORAGE_SIGNING_SECRET,
         DATABASE_URL: env.DATABASE_URL,
-        S3_SECRET_KEY: env.S3_SECRET_KEY ?? '',
+        ...(env.STORAGE_DRIVER === 's3' ? { S3_SECRET_KEY: env.S3_SECRET_KEY ?? '' } : {}),
       };
       for (const [key, value] of Object.entries(secrets)) {
         if (INSECURE_DEFAULTS.some((d) => value.includes(d))) {

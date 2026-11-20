@@ -267,7 +267,7 @@ Failed jobs are retained (last 1,000), surfaced on the admin dashboard as system
 ## 12. File storage architecture
 
 - `StorageService` interface: `createUploadUrl`, `headObject`, `getDownloadUrl`, `delete`, `putObject` (server-side generated files).
-- Implementations: S3 (AWS SDK v3, works with MinIO/R2/S3) and an in-memory/local-fs implementation for tests.
+- Implementations: S3 (AWS SDK v3, works with MinIO/R2/S3) and a local filesystem driver (development and tests) whose presigned URLs are HMAC-signed tokens served by `/api/v1/storage/local/:token`.
 - Upload flow: `POST /files/upload-intents {context, contextId, filename, size, mimeType}` → permission + allow-list check → `StoredFile` row `PENDING` + presigned PUT (max size enforced through signed content-length) → client uploads → `POST /files/{id}/complete` → server fetches the first bytes, sniffs magic number (`file-type`), checks size, sets `READY`. Unreferenced `PENDING` files are purged after 24 h.
 - Downloads: `GET /files/{id}/download` → policy check by context → 302 to a 5-minute signed GET URL with `Content-Disposition: attachment` for non-image types.
 
@@ -277,7 +277,7 @@ Failed jobs are retained (last 1,000), surfaced on the admin dashboard as system
 - **Environments:** development (compose infra + local `npm run dev`), CI (compose services), production (compose or any container orchestrator; managed Postgres/Redis/S3 recommended).
 - **Migrations:** `prisma migrate deploy` runs as a one-off release step before new API/worker containers start.
 - **Config:** 12-factor env vars validated at boot with Zod; the process exits on invalid config.
-- **Health:** `/health/live` (process up), `/health/ready` (DB + Redis ping). Container health checks use them.
+- **Health:** `/api/v1/health/live` (process up), `/api/v1/health/ready` (DB + Redis required; storage failure reports `degraded`). Container health checks use them.
 - **Backups:** nightly `pg_dump` (compose `backup` service with retention) for simple deployments; WAL archiving/PITR recommended with managed Postgres.
 - **Logging/monitoring:** Pino JSON to stdout → collector of choice. Metrics endpoint (`/metrics`, Prometheus format, S) for request latency, queue depth, failed jobs.
 

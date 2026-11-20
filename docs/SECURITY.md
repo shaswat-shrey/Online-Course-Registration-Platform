@@ -100,13 +100,13 @@ See SRS FR-FILE-*. Additionally: `Content-Disposition: attachment` for non-image
 
 | Control | Phase | Status |
 |---|---|---|
-| Env validation, .env.example | 1 | Planned |
-| Helmet, CORS, request IDs, error sanitization | 1 | Planned |
-| Pino redaction | 1 | Planned |
+| Env validation, .env.example | 1 | Done (production refuses example secrets and enabled docs) |
+| Helmet, CORS, request IDs, error sanitization | 1 | Done (tested) |
+| Pino redaction | 1 | Done |
 | Argon2id, login, lockout, login history | 2 | Planned |
 | Refresh rotation + reuse detection | 2 | Planned |
 | CSRF double-submit for cookie endpoints | 2 | Planned |
-| Rate limiting (Redis) | 2 | Planned |
+| Rate limiting (Redis) | 1–2 | Global limiter done (Phase 1); auth-specific fail-closed limiters in Phase 2 |
 | RBAC guards + scope policies + default-deny test | 2 | Planned |
 | Audit log | 2 | Planned |
 | File validation + signed URLs | 7 | Planned |
