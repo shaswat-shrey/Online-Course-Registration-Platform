@@ -254,6 +254,7 @@ export async function getMe(userId: string, sessionId: string): Promise<MeDto> {
       scopeMode: r.role.scopeMode,
     })),
     permissions,
+    grants: state.grants,
     portals: portalsFor(
       user.roles.map((r) => r.role.key),
       permissions,

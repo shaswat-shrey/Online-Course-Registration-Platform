@@ -2,14 +2,13 @@ import type { ActorContext } from '../../common/context/actor.js';
 import { NotFoundError } from '../../common/exceptions/app-error.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
 import { recordAudit } from '../audit/audit.service.js';
-import { assertGlobal } from '../authz/authz.js';
+import { assertUserInScope } from '../users/user-scope.js';
 import { loginHistory, toSessionDtos } from '../auth/auth.service.js';
 import { listActiveSessions, revokeSessions } from '../auth/session.service.js';
 
 /*
- * Administrative account-security actions. Users have no school/department until
- * student and faculty profiles exist, so these require a university-wide grant
- * for now; profile-based scoping is added with user management.
+ * Administrative account-security actions, scoped through the user's student or
+ * faculty department (users without one need a university-wide grant).
  */
 
 async function assertUser(userId: string) {
@@ -18,20 +17,20 @@ async function assertUser(userId: string) {
 }
 
 export async function adminListSessions(actor: ActorContext, userId: string) {
-  assertGlobal(actor, 'user:read_sessions');
   await assertUser(userId);
+  await assertUserInScope(actor, 'user:read_sessions', userId);
   return toSessionDtos(await listActiveSessions(userId));
 }
 
 export async function adminLoginHistory(actor: ActorContext, userId: string) {
-  assertGlobal(actor, 'user:read_sessions');
   await assertUser(userId);
+  await assertUserInScope(actor, 'user:read_sessions', userId);
   return loginHistory(userId, 100);
 }
 
 export async function adminRevokeSessions(actor: ActorContext, userId: string): Promise<number> {
-  assertGlobal(actor, 'user:revoke_sessions');
   await assertUser(userId);
+  await assertUserInScope(actor, 'user:revoke_sessions', userId);
   const count = await revokeSessions({ userId }, 'ADMIN_REVOKED');
   await recordAudit(actor, {
     action: 'auth.sessions_revoked_by_admin',
@@ -43,8 +42,8 @@ export async function adminRevokeSessions(actor: ActorContext, userId: string): 
 }
 
 export async function adminUnlockUser(actor: ActorContext, userId: string): Promise<void> {
-  assertGlobal(actor, 'user:manage_status');
   await assertUser(userId);
+  await assertUserInScope(actor, 'user:manage_status', userId);
   await prisma.user.update({
     where: { id: userId },
     data: { lockedUntil: null, failedLoginCount: 0, lockoutCount: 0 },

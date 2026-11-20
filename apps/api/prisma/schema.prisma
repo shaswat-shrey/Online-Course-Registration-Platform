@@ -90,12 +90,23 @@ model User {
   createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  roles         UserRole[]     @relation("UserRoles")
-  rolesAssigned UserRole[]     @relation("RoleAssigner")
-  sessions      Session[]
-  authTokens    AuthToken[]
-  loginAttempts LoginAttempt[]
-  auditLogs     AuditLog[]
+  roles          UserRole[]              @relation("UserRoles")
+  rolesAssigned  UserRole[]              @relation("RoleAssigner")
+  sessions       Session[]
+  authTokens     AuthToken[]
+  loginAttempts  LoginAttempt[]
+  auditLogs      AuditLog[]
+  /// Profile photo (stored file with context AVATAR).
+  avatarFileId   String?                 @map("avatar_file_id") @db.Uuid
+  avatar         StoredFile?             @relation("UserAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
+  uploadedFiles  StoredFile[]            @relation("FileOwner")
+  student        Student?
+  facultyMember  FacultyMember?
+  adminProfile   AdminProfile?
+  holdsPlaced    RegistrationHold[]      @relation("HoldPlacedBy")
+  holdsReleased  RegistrationHold[]      @relation("HoldReleasedBy")
+  programChanges StudentProgramHistory[]
+  importJobs     ImportJob[]
 
   @@index([status])
   @@map("users")
@@ -324,8 +335,11 @@ model School {
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  campus      Campus?      @relation(fields: [campusId], references: [id])
+  campus      Campus?        @relation(fields: [campusId], references: [id])
   departments Department[]
+  /// Dean: a faculty member of one of the school's departments.
+  deanId      String?        @map("dean_id") @db.Uuid
+  dean        FacultyMember? @relation("SchoolDean", fields: [deanId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "schools_name_trgm")
@@ -346,9 +360,15 @@ model Department {
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  school   School    @relation(fields: [schoolId], references: [id])
-  campus   Campus?   @relation(fields: [campusId], references: [id])
-  programs Program[]
+  school           School                       @relation(fields: [schoolId], references: [id])
+  campus           Campus?                      @relation(fields: [campusId], references: [id])
+  programs         Program[]
+  /// Head of department: a faculty member of this department.
+  headId           String?                      @map("head_id") @db.Uuid
+  head             FacultyMember?               @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+  facultyMembers   FacultyMember[]              @relation("FacultyPrimaryDepartment")
+  secondaryFaculty FacultySecondaryDepartment[]
+  adminProfiles    AdminProfile[]
 
   @@index([schoolId, status])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "departments_name_trgm")
@@ -388,11 +408,14 @@ model Program {
   createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  degree            Degree             @relation(fields: [degreeId], references: [id])
-  department        Department         @relation(fields: [departmentId], references: [id])
+  degree            Degree                  @relation(fields: [degreeId], references: [id])
+  department        Department              @relation(fields: [departmentId], references: [id])
   specializations   Specialization[]
   requirementGroups RequirementGroup[]
   priorityWindows   PriorityWindow[]
+  students          Student[]
+  historyFrom       StudentProgramHistory[] @relation("HistoryFromProgram")
+  historyTo         StudentProgramHistory[] @relation("HistoryToProgram")
 
   @@index([departmentId, status])
   @@index([degreeId])
@@ -414,6 +437,7 @@ model Specialization {
 
   program           Program            @relation(fields: [programId], references: [id])
   requirementGroups RequirementGroup[]
+  students          Student[]
 
   @@unique([programId, code])
   @@index([programId, status])
@@ -505,10 +529,12 @@ model AcademicSession {
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id])
-  gradingScale       GradingScale?       @relation(fields: [gradingScaleId], references: [id])
+  academicYear       AcademicYear            @relation(fields: [academicYearId], references: [id])
+  gradingScale       GradingScale?           @relation(fields: [gradingScaleId], references: [id])
   policy             SessionPolicy?
   registrationPeriod RegistrationPeriod?
+  admittedStudents   Student[]               @relation("AdmissionSession")
+  programChanges     StudentProgramHistory[]
 
   @@index([academicYearId])
   @@index([status])
@@ -603,4 +629,310 @@ model GradeScaleEntry {
 
   @@unique([scaleId, letter])
   @@map("grade_scale_entries")
+}
+
+// ---------------------------------------------------------------------------
+// People (DATABASE.md §3.2)
+// ---------------------------------------------------------------------------
+
+enum StudentStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  GRADUATED
+  WITHDRAWN
+  DISMISSED
+}
+
+enum FacultyDesignation {
+  PROFESSOR
+  ASSOCIATE_PROFESSOR
+  ASSISTANT_PROFESSOR
+  LECTURER
+  SENIOR_LECTURER
+  ADJUNCT
+  VISITING
+  EMERITUS
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+enum HoldType {
+  FINANCIAL
+  ACADEMIC
+  DISCIPLINARY
+  ADMINISTRATIVE
+  DOCUMENTATION
+}
+
+model Student {
+  id                     String        @id @default(uuid(7)) @db.Uuid
+  userId                 String        @unique @map("user_id") @db.Uuid
+  studentNumber          String        @unique @map("student_number") @db.VarChar(30)
+  programId              String        @map("program_id") @db.Uuid
+  /// Must belong to the program (enforced by trigger + service).
+  specializationId       String?       @map("specialization_id") @db.Uuid
+  admissionSessionId     String?       @map("admission_session_id") @db.Uuid
+  admissionDate          DateTime?     @map("admission_date") @db.Date
+  expectedGraduationYear Int?          @map("expected_graduation_year") @db.SmallInt
+  yearOfStudy            Int           @default(1) @map("year_of_study") @db.SmallInt
+  cohort                 String?       @db.VarChar(50)
+  status                 StudentStatus @default(ACTIVE)
+  /// Contact phone students may edit; sensitive details live in student_contacts.
+  phone                  String?       @db.VarChar(50)
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user             User                    @relation(fields: [userId], references: [id])
+  program          Program                 @relation(fields: [programId], references: [id])
+  specialization   Specialization?         @relation(fields: [specializationId], references: [id])
+  admissionSession AcademicSession?        @relation("AdmissionSession", fields: [admissionSessionId], references: [id])
+  contact          StudentContact?
+  holds            RegistrationHold[]
+  programHistory   StudentProgramHistory[]
+
+  @@index([programId, status])
+  @@index([status])
+  @@map("students")
+}
+
+/// Sensitive personal data, separated for access control (student:read_sensitive).
+model StudentContact {
+  studentId                String    @id @map("student_id") @db.Uuid
+  personalEmail            String?   @map("personal_email") @db.VarChar(255)
+  dateOfBirth              DateTime? @map("date_of_birth") @db.Date
+  addressLine              String?   @map("address_line") @db.VarChar(300)
+  city                     String?   @db.VarChar(100)
+  state                    String?   @db.VarChar(100)
+  postalCode               String?   @map("postal_code") @db.VarChar(20)
+  country                  String?   @db.VarChar(100)
+  emergencyContactName     String?   @map("emergency_contact_name") @db.VarChar(150)
+  emergencyContactPhone    String?   @map("emergency_contact_phone") @db.VarChar(50)
+  emergencyContactRelation String?   @map("emergency_contact_relation") @db.VarChar(50)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_contacts")
+}
+
+/// Program/specialization changes (FR-USER-006, BR-011/012).
+model StudentProgramHistory {
+  id                   String   @id @default(uuid(7)) @db.Uuid
+  studentId            String   @map("student_id") @db.Uuid
+  fromProgramId        String?  @map("from_program_id") @db.Uuid
+  toProgramId          String   @map("to_program_id") @db.Uuid
+  fromSpecializationId String?  @map("from_specialization_id") @db.Uuid
+  toSpecializationId   String?  @map("to_specialization_id") @db.Uuid
+  effectiveSessionId   String?  @map("effective_session_id") @db.Uuid
+  reason               String   @db.VarChar(500)
+  changedById          String   @map("changed_by_id") @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  student          Student          @relation(fields: [studentId], references: [id])
+  fromProgram      Program?         @relation("HistoryFromProgram", fields: [fromProgramId], references: [id])
+  toProgram        Program          @relation("HistoryToProgram", fields: [toProgramId], references: [id])
+  effectiveSession AcademicSession? @relation(fields: [effectiveSessionId], references: [id])
+  changedBy        User             @relation(fields: [changedById], references: [id])
+
+  @@index([studentId, createdAt])
+  @@map("student_program_history")
+}
+
+/// Holds block registration while active (FR-USER-007).
+model RegistrationHold {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  studentId    String    @map("student_id") @db.Uuid
+  type         HoldType
+  reason       String    @db.VarChar(500)
+  placedById   String    @map("placed_by_id") @db.Uuid
+  placedAt     DateTime  @default(now()) @map("placed_at") @db.Timestamptz(3)
+  releasedAt   DateTime? @map("released_at") @db.Timestamptz(3)
+  releasedById String?   @map("released_by_id") @db.Uuid
+  releaseNote  String?   @map("release_note") @db.VarChar(500)
+
+  student    Student @relation(fields: [studentId], references: [id])
+  placedBy   User    @relation("HoldPlacedBy", fields: [placedById], references: [id])
+  releasedBy User?   @relation("HoldReleasedBy", fields: [releasedById], references: [id])
+
+  @@index([studentId, releasedAt])
+  @@map("registration_holds")
+}
+
+model FacultyMember {
+  id                String             @id @default(uuid(7)) @db.Uuid
+  userId            String             @unique @map("user_id") @db.Uuid
+  employeeNumber    String             @unique @map("employee_number") @db.VarChar(30)
+  departmentId      String             @map("department_id") @db.Uuid
+  designation       FacultyDesignation
+  employmentStatus  EmploymentStatus   @default(ACTIVE) @map("employment_status")
+  qualifications    String?            @db.VarChar(1000)
+  specialization    String?            @db.VarChar(200)
+  researchInterests String?            @map("research_interests") @db.VarChar(1000)
+  officeLocation    String?            @map("office_location") @db.VarChar(200)
+  officeHours       String?            @map("office_hours") @db.VarChar(300)
+  phone             String?            @db.VarChar(50)
+  /// Maximum teaching load per session, in credits.
+  maxLoadCredits    Decimal?           @map("max_load_credits") @db.Decimal(4, 1)
+  joinedOn          DateTime?          @map("joined_on") @db.Date
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user                 User                         @relation(fields: [userId], references: [id])
+  department           Department                   @relation("FacultyPrimaryDepartment", fields: [departmentId], references: [id])
+  secondaryDepartments FacultySecondaryDepartment[]
+  headOf               Department[]                 @relation("DepartmentHead")
+  deanOf               School[]                     @relation("SchoolDean")
+
+  @@index([departmentId, employmentStatus])
+  @@map("faculty_members")
+}
+
+/// Joint appointments (FR-USER-002).
+model FacultySecondaryDepartment {
+  facultyMemberId String @map("faculty_member_id") @db.Uuid
+  departmentId    String @map("department_id") @db.Uuid
+
+  facultyMember FacultyMember @relation(fields: [facultyMemberId], references: [id], onDelete: Cascade)
+  department    Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([facultyMemberId, departmentId])
+  @@index([departmentId])
+  @@map("faculty_secondary_departments")
+}
+
+/// Staff details for administrators (their powers come from role assignments).
+model AdminProfile {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  userId             String   @unique @map("user_id") @db.Uuid
+  employeeNumber     String?  @unique @map("employee_number") @db.VarChar(30)
+  jobTitle           String?  @map("job_title") @db.VarChar(150)
+  officeDepartmentId String?  @map("office_department_id") @db.Uuid
+  phone              String?  @db.VarChar(50)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user             User        @relation(fields: [userId], references: [id])
+  officeDepartment Department? @relation(fields: [officeDepartmentId], references: [id])
+
+  @@map("admin_profiles")
+}
+
+/// Monotonic counters for human-readable identifiers (student numbers etc.).
+model IdSequence {
+  key   String @id @db.VarChar(60)
+  value Int
+
+  @@map("id_sequences")
+}
+
+// ---------------------------------------------------------------------------
+// Files and imports (DATABASE.md §3.9)
+// ---------------------------------------------------------------------------
+
+enum FileContext {
+  AVATAR
+  MATERIAL
+  SYLLABUS
+  MESSAGE
+  TICKET
+  ANNOUNCEMENT
+  DOCUMENT
+  EXPORT
+  IMPORT
+}
+
+enum FileStatus {
+  PENDING
+  READY
+  REJECTED
+}
+
+/// Metadata for objects in storage; the bytes live in object storage (FR-FILE-*).
+model StoredFile {
+  id           String      @id @default(uuid(7)) @db.Uuid
+  ownerId      String      @map("owner_id") @db.Uuid
+  storageKey   String      @unique @map("storage_key") @db.VarChar(300)
+  originalName String      @map("original_name") @db.VarChar(255)
+  /// Declared by the client at upload; replaced by the sniffed type on completion.
+  mimeType     String      @map("mime_type") @db.VarChar(100)
+  sizeBytes    BigInt      @map("size_bytes")
+  context      FileContext
+  status       FileStatus  @default(PENDING)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt  DateTime?   @map("completed_at") @db.Timestamptz(3)
+
+  owner       User   @relation("FileOwner", fields: [ownerId], references: [id])
+  avatarUsers User[] @relation("UserAvatar")
+
+  @@index([ownerId, context])
+  @@index([status, createdAt])
+  @@map("stored_files")
+}
+
+enum ImportKind {
+  STUDENTS
+  FACULTY
+}
+
+enum ImportStatus {
+  PREVIEW
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ImportRowStatus {
+  VALID
+  INVALID
+  CREATED
+  FAILED
+}
+
+/// Bulk import of students or faculty (FR-USER-005).
+model ImportJob {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  kind         ImportKind
+  status       ImportStatus @default(PREVIEW)
+  fileName     String       @map("file_name") @db.VarChar(255)
+  sendInvites  Boolean      @default(true) @map("send_invites")
+  totalRows    Int          @map("total_rows")
+  validRows    Int          @map("valid_rows")
+  createdRows  Int          @default(0) @map("created_rows")
+  failedRows   Int          @default(0) @map("failed_rows")
+  createdById  String       @map("created_by_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  startedAt    DateTime?    @map("started_at") @db.Timestamptz(3)
+  finishedAt   DateTime?    @map("finished_at") @db.Timestamptz(3)
+  errorMessage String?      @map("error_message") @db.VarChar(500)
+
+  createdBy User           @relation(fields: [createdById], references: [id])
+  rows      ImportJobRow[]
+
+  @@index([createdById, createdAt])
+  @@map("import_jobs")
+}
+
+model ImportJobRow {
+  id        String          @id @default(uuid(7)) @db.Uuid
+  jobId     String          @map("job_id") @db.Uuid
+  rowNumber Int             @map("row_number")
+  /// Normalised input for this row (validated import payload, not domain data).
+  data      Json
+  status    ImportRowStatus
+  errors    Json?
+  /// The user created from this row.
+  userId    String?         @map("user_id") @db.Uuid
+
+  job ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, rowNumber])
+  @@index([jobId, status])
+  @@map("import_job_rows")
 }

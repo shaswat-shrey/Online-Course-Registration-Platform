@@ -6,7 +6,6 @@ import { defineRoute } from '../../common/http/define-route.js';
 import { sendCreated, sendOk } from '../../common/http/response.js';
 import { successEnvelope } from '../../openapi/registry.js';
 import { loginAttemptSchema, sessionSchema } from '../auth/auth.schemas.js';
-import { assertGlobal } from '../authz/authz.js';
 import {
   assignRole,
   createRole,
@@ -55,6 +54,8 @@ const assignmentSchema = z
     roleName: z.string(),
     scopeType: z.enum(['GLOBAL', 'SCHOOL', 'DEPARTMENT']),
     scopeId: z.uuid().nullable(),
+    scopeName: z.string().nullable(),
+    scopeMode: z.enum(['ORGANIZATIONAL', 'RELATIONSHIP']),
     createdAt: z.string(),
   })
   .meta({ id: 'RoleAssignment' });
@@ -219,8 +220,11 @@ defineRoute(
     },
   },
   async (req, res) => {
-    assertGlobal(getActor(req), 'user:read');
-    sendOk(res, await listUserRoles(req.valid.params.id), 'Role assignments retrieved');
+    sendOk(
+      res,
+      await listUserRoles(getActor(req), req.valid.params.id),
+      'Role assignments retrieved',
+    );
   },
 );
 

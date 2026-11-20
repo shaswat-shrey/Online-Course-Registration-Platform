@@ -10,6 +10,7 @@ import { prisma } from '../../infrastructure/database/prisma.js';
 import { recordAudit } from '../audit/audit.service.js';
 import { assertGlobal, assertInScope, covers, type ScopeTarget } from '../authz/authz.js';
 import { bumpPermissionsVersion } from '../authz/grants.service.js';
+import { assertUserInScope } from '../users/user-scope.js';
 import { resolveScope, type ScopeInput } from './scope-resolver.js';
 
 const roleSelect = {
@@ -256,9 +257,37 @@ export async function deleteRole(actor: ActorContext, id: string): Promise<void>
 
 // ----- User role assignments ------------------------------------------------
 
-export async function listUserRoles(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
-  if (!user) throw new NotFoundError('User');
+/** Display names for role-assignment scopes ("Department: Computer Science"). */
+export async function scopeNames(
+  assignments: Array<{ scopeType: string; scopeId: string | null }>,
+) {
+  const schoolIds = assignments
+    .filter((a) => a.scopeType === 'SCHOOL' && a.scopeId)
+    .map((a) => a.scopeId!);
+  const deptIds = assignments
+    .filter((a) => a.scopeType === 'DEPARTMENT' && a.scopeId)
+    .map((a) => a.scopeId!);
+  const [schools, depts] = await Promise.all([
+    schoolIds.length
+      ? prisma.school.findMany({
+          where: { id: { in: schoolIds } },
+          select: { id: true, name: true },
+        })
+      : [],
+    deptIds.length
+      ? prisma.department.findMany({
+          where: { id: { in: deptIds } },
+          select: { id: true, name: true },
+        })
+      : [],
+  ]);
+  const names = new Map([...schools, ...depts].map((x) => [x.id, x.name]));
+  return (a: { scopeType: string; scopeId: string | null }) =>
+    a.scopeId ? (names.get(a.scopeId) ?? null) : null;
+}
+
+export async function listUserRoles(actor: ActorContext, userId: string) {
+  await assertUserInScope(actor, 'user:read', userId);
   const rows = await prisma.userRole.findMany({
     where: { userId },
     orderBy: { createdAt: 'asc' },
@@ -267,21 +296,24 @@ export async function listUserRoles(userId: string) {
       scopeType: true,
       scopeId: true,
       createdAt: true,
-      role: { select: { id: true, key: true, name: true } },
+      role: { select: { id: true, key: true, name: true, scopeMode: true } },
     },
   });
+  const nameOf = await scopeNames(rows);
   return rows.map((r) => ({
     id: r.id,
     roleId: r.role.id,
     roleKey: r.role.key,
     roleName: r.role.name,
+    scopeMode: r.role.scopeMode,
     scopeType: r.scopeType,
     scopeId: r.scopeId,
+    scopeName: nameOf(r),
     createdAt: r.createdAt.toISOString(),
   }));
 }
 
-async function roleForAssignment(roleId: string) {
+export async function roleForAssignment(roleId: string) {
   const role = await prisma.role.findUnique({
     where: { id: roleId },
     select: {
@@ -305,7 +337,7 @@ async function roleForAssignment(roleId: string) {
  * power (their grants are OWN-scoped), so assigning them needs only
  * user:assign_roles at the target scope.
  */
-function assertCanAssign(
+export function assertCanAssign(
   actor: ActorContext,
   role: Awaited<ReturnType<typeof roleForAssignment>>,
   target: ScopeTarget,

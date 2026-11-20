@@ -13,7 +13,11 @@ import { storage, LocalStorageService } from './infrastructure/storage/index.js'
 import { createLocalStorageRouter } from './infrastructure/storage/local-storage.routes.js';
 import { calendarRouter } from './modules/academic-sessions/calendar.routes.js';
 import { auditRouter } from './modules/audit/audit.routes.js';
+import { peopleAdminRouter } from './modules/administrators/administrators.routes.js';
 import { degreesRouter } from './modules/degrees/degrees.routes.js';
+import { facultyRouter } from './modules/faculty/faculty.routes.js';
+import { importsRouter } from './modules/imports/imports.routes.js';
+import { studentsRouter } from './modules/students/students.routes.js';
 import { departmentsRouter } from './modules/departments/departments.routes.js';
 import { gradingScalesRouter } from './modules/grading-scales/grading-scales.routes.js';
 import { programsRouter } from './modules/programs/programs.routes.js';
@@ -83,6 +87,10 @@ export function createApp(): Express {
   api.use(programsRouter);
   api.use(calendarRouter);
   api.use(gradingScalesRouter);
+  api.use(studentsRouter);
+  api.use(facultyRouter);
+  api.use(peopleAdminRouter);
+  api.use(importsRouter);
   app.use(API_PREFIX, api);
 
   if (env.API_DOCS_ENABLED) {

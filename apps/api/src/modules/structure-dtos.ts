@@ -4,6 +4,7 @@ import { z } from 'zod';
 const ref = z.object({ id: z.uuid(), name: z.string() });
 const refWithCode = ref.extend({ code: z.string() });
 const timestamps = { createdAt: z.string(), updatedAt: z.string() };
+const person = z.object({ id: z.uuid(), name: z.string(), designation: z.string() }).nullable();
 
 export const schoolDto = z
   .object({
@@ -15,6 +16,7 @@ export const schoolDto = z
     contactEmail: z.string().nullable(),
     contactPhone: z.string().nullable(),
     website: z.string().nullable(),
+    dean: person,
     status: z.string(),
     departmentCount: z.number(),
     programCount: z.number().optional(),
@@ -33,9 +35,12 @@ export const departmentDto = z
     contactEmail: z.string().nullable(),
     contactPhone: z.string().nullable(),
     officeLocation: z.string().nullable(),
+    head: person,
     status: z.string(),
     programCount: z.number(),
+    facultyCount: z.number(),
     specializationCount: z.number().optional(),
+    studentCount: z.number().optional(),
     canManage: z.boolean().describe('Whether the caller may edit this department'),
     ...timestamps,
   })

@@ -35,8 +35,6 @@ const UNIVERSITY_ADMIN_EXCLUDED: PermissionKey[] = [
   'grade:change',
   'record:manage',
   'assessment:manage',
-  'material:manage',
-  'attendance:manage',
   'registration:self',
   'feedback:submit',
 ];

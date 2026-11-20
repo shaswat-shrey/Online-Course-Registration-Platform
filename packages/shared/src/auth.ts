@@ -65,6 +65,13 @@ export interface MeDto {
   roles: RoleAssignmentDto[];
   /** Union of permissions across all assignments (scope details stay server-side). */
   permissions: PermissionKey[];
+  /**
+   * Scope of each permission, so the UI can hide actions no scope permits
+   * (e.g. creating departments needs a school-wide or university-wide grant).
+   */
+  grants: Partial<
+    Record<PermissionKey, Array<{ scope: 'GLOBAL' | 'SCHOOL' | 'DEPARTMENT' | 'OWN'; id?: string }>>
+  >;
   portals: Portal[];
   sessionId: string;
 }

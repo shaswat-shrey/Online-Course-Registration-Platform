@@ -10,6 +10,7 @@ import { closeQueues } from '../../src/infrastructure/queues/queues.js';
 import { hashPassword } from '../../src/modules/auth/password.js';
 import { invalidateAuthState } from '../../src/modules/authz/grants.service.js';
 import { syncRbacCatalog } from '../../src/modules/rbac/rbac.bootstrap.js';
+import { seedPeople } from './people.js';
 import { seedStructure } from './structure.js';
 
 async function seedUniversity() {
@@ -137,6 +138,8 @@ async function main() {
     `Structure seeded (${structure.departments.size} departments, ${structure.programsCreated} programs created).`,
   );
   await seedDevAccounts();
+  const people = await seedPeople(await hashPassword(process.env.SEED_DEV_PASSWORD!));
+  console.warn(`People seeded (${people.faculty} faculty, ${people.students} students).`);
 }
 
 main()

@@ -11,11 +11,13 @@ import { prisma } from '../../infrastructure/database/prisma.js';
 import { diffChanges, recordAudit } from '../audit/audit.service.js';
 import { assertInScope, covers } from '../authz/authz.js';
 import { codeTaken, hasDependents } from '../structure-scope.js';
+import { assertHeadCandidate, personDto, personRef } from '../structure-people.js';
 
 const include = {
   school: { select: { id: true, code: true, name: true } },
   campus: { select: { id: true, name: true } },
-  _count: { select: { programs: true } },
+  head: personRef,
+  _count: { select: { programs: true, facultyMembers: true } },
 } as const;
 const findRow = (id: string) => prisma.department.findUnique({ where: { id }, include });
 
@@ -33,8 +35,10 @@ function toDto(
     contactEmail: d.contactEmail,
     contactPhone: d.contactPhone,
     officeLocation: d.officeLocation,
+    head: personDto(d.head),
     status: d.status,
     programCount: d._count.programs,
+    facultyCount: d._count.facultyMembers,
     createdAt: d.createdAt.toISOString(),
     updatedAt: d.updatedAt.toISOString(),
     ...extra,
@@ -78,11 +82,13 @@ export async function listDepartments(
 export async function getDepartment(actor: ActorContext, id: string) {
   const row = await findRow(id);
   if (!row) throw new NotFoundError('Department');
-  const specializationCount = await prisma.specialization.count({
-    where: { program: { departmentId: id } },
-  });
+  const [specializationCount, studentCount] = await Promise.all([
+    prisma.specialization.count({ where: { program: { departmentId: id } } }),
+    prisma.student.count({ where: { program: { departmentId: id }, status: 'ACTIVE' } }),
+  ]);
   return toDto(row, {
     specializationCount,
+    studentCount,
     canManage: covers(actor.grants, 'department:manage', {
       departmentId: id,
       schoolId: row.schoolId,
@@ -116,6 +122,13 @@ export async function createDepartment(
   await assertActiveSchool(input.schoolId);
   if (await prisma.department.findUnique({ where: { code: input.code } }))
     throw codeTaken('department');
+  // A new department has no faculty yet, so it cannot have a head.
+  if (input.headId) {
+    throw new BusinessRuleError(
+      ErrorCode.VALIDATION_ERROR,
+      'Appoint a head after adding faculty to the department',
+    );
+  }
   return prisma.$transaction(async (tx) => {
     const d = await tx.department.create({ data: input, include });
     await recordAudit(
@@ -152,6 +165,7 @@ export async function updateDepartment(
   ) {
     throw codeTaken('department');
   }
+  if (input.headId !== undefined) await assertHeadCandidate(id, input.headId);
   if (input.status && input.status !== 'ACTIVE' && before.status === 'ACTIVE') {
     const active = await prisma.program.count({ where: { departmentId: id, status: 'ACTIVE' } });
     if (active > 0)

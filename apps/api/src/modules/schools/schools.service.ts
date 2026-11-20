@@ -6,10 +6,12 @@ import { paging, searchWhere, toOrderBy } from '../../common/http/list-query.js'
 import { prisma } from '../../infrastructure/database/prisma.js';
 import { diffChanges, recordAudit } from '../audit/audit.service.js';
 import { assertGlobal, assertInScope } from '../authz/authz.js';
+import { assertDeanCandidate, personDto, personRef } from '../structure-people.js';
 import { codeTaken, hasDependents } from '../structure-scope.js';
 
 const include = {
   campus: { select: { id: true, name: true } },
+  dean: personRef,
   _count: { select: { departments: true } },
 } as const;
 
@@ -26,6 +28,7 @@ function toDto(s: NonNullable<Row>, programCount?: number) {
     contactEmail: s.contactEmail,
     contactPhone: s.contactPhone,
     website: s.website,
+    dean: personDto(s.dean),
     status: s.status,
     departmentCount: s._count.departments,
     ...(programCount !== undefined ? { programCount } : {}),
@@ -75,6 +78,12 @@ export async function createSchool(
   if (await prisma.school.findUnique({ where: { code: input.code } }))
     throw codeTaken('faculty/school');
   await assertCampus(input.campusId);
+  if (input.deanId) {
+    throw new BusinessRuleError(
+      ErrorCode.VALIDATION_ERROR,
+      'Appoint a dean after adding departments and faculty',
+    );
+  }
   return prisma.$transaction(async (tx) => {
     const s = await tx.school.create({ data: input, include });
     await recordAudit(
@@ -103,6 +112,7 @@ export async function updateSchool(
     throw codeTaken('faculty/school');
   }
   await assertCampus(input.campusId);
+  if (input.deanId !== undefined) await assertDeanCandidate(id, input.deanId);
   if (input.status && input.status !== 'ACTIVE' && before.status === 'ACTIVE') {
     const active = await prisma.department.count({ where: { schoolId: id, status: 'ACTIVE' } });
     if (active > 0)

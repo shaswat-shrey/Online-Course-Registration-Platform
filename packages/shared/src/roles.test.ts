@@ -24,13 +24,16 @@ describe('system roles', () => {
     const ua = perms('UNIVERSITY_ADMIN');
     for (const p of [
       'grade:change',
+      'grade:submit',
       'record:manage',
       'assessment:manage',
-      'material:manage',
     ] as const) {
       expect(ua.has(p)).toBe(false);
     }
     expect(ua.has('announcement:publish_global')).toBe(true);
+    // University admins provision department admins, so they hold every department-admin permission.
+    const da = perms('DEPARTMENT_ADMIN');
+    expect([...da].filter((p) => !ua.has(p))).toEqual([]);
   });
 
   it('never lets faculty publish globally or students act on others', () => {

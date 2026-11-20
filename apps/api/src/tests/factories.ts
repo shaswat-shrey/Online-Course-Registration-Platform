@@ -153,3 +153,40 @@ export async function grantScoped(
   const r = await prisma.role.findUniqueOrThrow({ where: { key: role } });
   await prisma.userRole.create({ data: { userId, roleId: r.id, ...scope } });
 }
+
+// ----- people -----------------------------------------------------------------
+
+/** A student record (with an ACTIVE account) in the given program. */
+export async function createStudentRecord(
+  programId: string,
+  options: { email?: string; yearOfStudy?: number } = {},
+) {
+  const user = await createUser({ roles: ['STUDENT'], email: options.email });
+  counter += 1;
+  const student = await prisma.student.create({
+    data: {
+      userId: user.id,
+      studentNumber: `TS${Date.now().toString().slice(-6)}${counter}`,
+      programId,
+      yearOfStudy: options.yearOfStudy ?? 1,
+    },
+  });
+  return { user, student };
+}
+
+export async function createFacultyRecord(
+  departmentId: string,
+  overrides: { designation?: 'PROFESSOR' | 'LECTURER' } = {},
+) {
+  const user = await createUser({ roles: ['FACULTY'] });
+  counter += 1;
+  const member = await prisma.facultyMember.create({
+    data: {
+      userId: user.id,
+      employeeNumber: `TF${Date.now().toString().slice(-6)}${counter}`,
+      departmentId,
+      designation: overrides.designation ?? 'PROFESSOR',
+    },
+  });
+  return { user, member };
+}

@@ -221,7 +221,7 @@ flowchart TD
 - **Rule pipeline:** each rule is a pure function `(ctx) => RuleResult` registered in an ordered list. The same pipeline powers the eligibility preview (`GET /registrations/eligibility?sectionId=`), submit, admin override (selected rules disabled), batch planner registration, and waitlist promotion (subset of rules).
 - **Locking scope:** one row lock per section; locks on different sections do not contend. Student-level serialization (to make the credit-limit/conflict re-check race-free when one student submits two registrations at once) uses `SELECT … FOR UPDATE` on the `Student` row, taken *before* the section lock. Consistent lock order (student → section, sections by ID ascending in batch) prevents deadlocks.
 - **Isolation:** READ COMMITTED plus explicit row locks. Transactions are short (no network calls inside). Serialization errors/deadlocks are retried up to 3 times.
-- **Waitlist promotion:** a `waitlist` queue job keyed by `sectionId` (BullMQ job ID deduplication, so concurrent triggers collapse). The processor locks the section, loops while seats are free: takes the next WAITLISTED entry, re-validates, promotes or skips. A repeatable sweeper job (every 5 min) finds sections where `enrolledCount < capacity` and `waitlistCount > 0` and enqueues them, covering missed triggers.
+- **Waitlist promotion:** a `waitlist` queue job keyed by `sectionId` (BullMQ job ID `promote-<sectionId>`, so concurrent triggers collapse; custom IDs cannot contain `:`). The processor locks the section, loops while seats are free: takes the next WAITLISTED entry, re-validates, promotes or skips. A repeatable sweeper job (every 5 min) finds sections where `enrolledCount < capacity` and `waitlistCount > 0` and enqueues them, covering missed triggers.
 - **Offer expiry:** delayed job per OFFERED registration at `offerExpiresAt`; the sweeper also expires stale offers.
 
 ## 9. Redis usage
@@ -249,7 +249,7 @@ Student records, rosters and messages are **not** cached (NFR-PRIV-003). Redis u
 | `email` | transactional emails | 5×, exponential 30 s | idempotent by `emailLogId` |
 | `notifications` | fan-out for announcements and bulk events | 5× | chunked by 500 recipients |
 | `announcements` | scheduled publish | 3× | delayed jobs, jobId = announcementId |
-| `waitlist` | promote section, expire offer, sweeper | 5× | jobId = `promote:{sectionId}` dedupe |
+| `waitlist` | promote section, expire offer, sweeper | 5× | jobId = `promote-{sectionId}` dedupe (BullMQ custom IDs cannot contain `:`) |
 | `imports` | bulk students/faculty | 1× (manual retry) | per-row results stored in `ImportJob` |
 | `exports` | report CSV/XLSX | 3× | file to storage, signed link notification |
 | `maintenance` | purge notifications/login history, counter reconcile, expire waitlists at period close | 3× | repeatable cron |

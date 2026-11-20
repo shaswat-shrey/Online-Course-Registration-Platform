@@ -170,8 +170,8 @@ Legend: ✅ granted · 🔹 granted, limited to assigned scope (school/departmen
 | registration:self | — | — | — | — | — | 👤 |
 | roster:read | ✅ | ✅ | 🔹 | 🔹 | 👤 | — |
 | roster:export | ✅ | ✅ | 🔹 | 🔹 | 👤 | — |
-| material:manage | ✅ | — | 🔹 | 🔹 | 👤 | — |
-| attendance:manage | ✅ | — | 🔹 | 🔹 | 👤 | — |
+| material:manage | ✅ | ✅ | 🔹 | 🔹 | 👤 | — |
+| attendance:manage | ✅ | ✅ | 🔹 | 🔹 | 👤 | — |
 | assessment:manage | ✅ | — | — | — | 👤 | — |
 | grade:submit | — | — | — | — | 👤 (primary instructor) | — |
 | grade:approve | ✅ | ✅ | 🔹 | 🔹 | — | — |
@@ -193,7 +193,7 @@ Legend: ✅ granted · 🔹 granted, limited to assigned scope (school/departmen
 
 Notes:
 - A permission marked 🔹 is still *granted* to the role; the scope comes from the role assignment. Assigning `ACADEMIC_ADMIN` at GLOBAL scope makes every 🔹 effectively ✅.
-- `UNIVERSITY_ADMIN` intentionally lacks `grade:change`, `record:manage`, `assessment:manage` and `material:manage` (separation of duties: academic records are owned by the registrar).
+- `UNIVERSITY_ADMIN` intentionally lacks `grade:submit`, `grade:change`, `record:manage` and `assessment:manage` (separation of duties: grades and academic records belong to faculty and the registrar). It holds every Department Administrator permission so it can provision department admins; it cannot create Academic Administrators (only the Super Administrator can).
 - Privilege-escalation guard: assigning or revoking any role requires `user:assign_roles` covering the target scope. For ORGANIZATIONAL roles, the assigner must also hold every one of the role's permissions at that scope. RELATIONSHIP roles confer no organisational power, so the subset check does not apply (otherwise a university admin, who deliberately lacks `grade:submit`, could not assign the Faculty role).
 - Role administration (`rbac:*`) and audit reading require a university-wide grant.
 - The Super Administrator role's permissions cannot be edited, and the last Super Administrator assignment cannot be removed.

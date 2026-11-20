@@ -21,6 +21,15 @@ export const meSchema = z
     }),
     roles: z.array(roleAssignment),
     permissions: z.array(z.string()),
+    grants: z.record(
+      z.string(),
+      z.array(
+        z.object({
+          scope: z.enum(['GLOBAL', 'SCHOOL', 'DEPARTMENT', 'OWN']),
+          id: z.uuid().optional(),
+        }),
+      ),
+    ),
     portals: z.array(z.enum(['admin', 'faculty', 'student'])),
     sessionId: z.uuid(),
   })

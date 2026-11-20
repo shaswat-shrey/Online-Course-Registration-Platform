@@ -150,6 +150,8 @@ const schoolShape = {
   contactEmail: optionalEmail,
   contactPhone: optionalText(50),
   website: optionalUrl,
+  /** Dean: a faculty member of one of the school's departments. */
+  deanId: optionalId,
   status: z.enum(ENTITY_STATUSES).optional(),
 };
 export const schoolCreateSchema = z.object(schoolShape);
@@ -165,6 +167,8 @@ const departmentShape = {
   contactEmail: optionalEmail,
   contactPhone: optionalText(50),
   officeLocation: optionalText(200),
+  /** Head of department: a faculty member of this department. */
+  headId: optionalId,
   status: z.enum(ENTITY_STATUSES).optional(),
 };
 export const departmentCreateSchema = z.object(departmentShape);

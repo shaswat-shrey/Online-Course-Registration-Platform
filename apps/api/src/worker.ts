@@ -4,6 +4,8 @@ import { prisma } from './infrastructure/database/prisma.js';
 import { sendMail, type MailMessage } from './infrastructure/email/mailer.js';
 import { closeQueues, getQueue, QUEUE_PREFIX, QueueName } from './infrastructure/queues/queues.js';
 import { createQueueConnection, redis, waitForRedis } from './infrastructure/redis/redis.js';
+import { purgeStalePendingFiles } from './modules/files/files.service.js';
+import { processImportJob } from './modules/imports/imports.service.js';
 
 /** Last time the worker ran its heartbeat; read by admin system alerts (Phase 11). */
 export const WORKER_HEARTBEAT_KEY = 'worker:heartbeat';
@@ -14,10 +16,16 @@ const processors: Partial<Record<QueueName, { processor: Processor; concurrency:
     concurrency: 5,
     processor: async (job: Job<MailMessage>) => sendMail(job.data),
   },
+  [QueueName.IMPORTS]: {
+    concurrency: 1,
+    processor: async (job: Job<{ jobId: string }>) => processImportJob(job.data.jobId),
+  },
   [QueueName.MAINTENANCE]: {
     concurrency: 1,
     processor: async (job: Job) => {
       switch (job.name) {
+        case 'purge-pending-files':
+          return { purged: await purgeStalePendingFiles() };
         case 'heartbeat':
           await redis.set(WORKER_HEARTBEAT_KEY, new Date().toISOString(), 'EX', 300);
           return { ok: true };
@@ -56,6 +64,11 @@ async function main() {
     'heartbeat',
     { every: HEARTBEAT_EVERY_MS },
     { name: 'heartbeat', opts: { attempts: 1 } },
+  );
+  await getQueue(QueueName.MAINTENANCE).upsertJobScheduler(
+    'purge-pending-files',
+    { every: 60 * 60_000 },
+    { name: 'purge-pending-files', opts: { attempts: 3 } },
   );
   logger.info({ queues: Object.keys(processors) }, 'Worker started');
 
