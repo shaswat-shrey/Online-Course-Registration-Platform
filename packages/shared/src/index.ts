@@ -6,3 +6,4 @@ export * from './query.js';
 export * from './roles.js';
 export * from './structure.js';
 export * from './people.js';
+export * from './courses.js';

@@ -10,6 +10,7 @@ import { closeQueues } from '../../src/infrastructure/queues/queues.js';
 import { hashPassword } from '../../src/modules/auth/password.js';
 import { invalidateAuthState } from '../../src/modules/authz/grants.service.js';
 import { syncRbacCatalog } from '../../src/modules/rbac/rbac.bootstrap.js';
+import { seedCatalog } from './courses.js';
 import { seedPeople } from './people.js';
 import { seedStructure } from './structure.js';
 
@@ -140,6 +141,10 @@ async function main() {
   await seedDevAccounts();
   const people = await seedPeople(await hashPassword(process.env.SEED_DEV_PASSWORD!));
   console.warn(`People seeded (${people.faculty} faculty, ${people.students} students).`);
+  const catalog = await seedCatalog();
+  console.warn(
+    `Catalog seeded (${catalog.classrooms} classrooms, ${catalog.courses} courses, ${catalog.sections} sections created).`,
+  );
 }
 
 main()

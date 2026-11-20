@@ -67,6 +67,15 @@ export const requirementGroupDto = z
     minCredits: z.number().nullable(),
     category: z.string().nullable(),
     position: z.number(),
+    courses: z.array(
+      z.object({
+        id: z.uuid(),
+        code: z.string(),
+        title: z.string(),
+        credits: z.number(),
+        status: z.string(),
+      }),
+    ),
   })
   .meta({ id: 'RequirementGroup' });
 

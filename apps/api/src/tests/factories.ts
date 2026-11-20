@@ -190,3 +190,92 @@ export async function createFacultyRecord(
   });
   return { user, member };
 }
+
+// ----- catalog ----------------------------------------------------------------
+
+export async function createSession(
+  overrides: { status?: 'PLANNED' | 'ACTIVE' | 'COMPLETED'; code?: string } = {},
+) {
+  counter += 1;
+  const year = await prisma.academicYear.create({
+    data: {
+      label: `${2000 + counter}-${2001 + counter}`,
+      startDate: new Date('2026-07-01'),
+      endDate: new Date('2027-06-30'),
+    },
+  });
+  return prisma.academicSession.create({
+    data: {
+      academicYearId: year.id,
+      code: overrides.code ?? `SES${counter}`,
+      name: `Session ${counter}`,
+      type: 'FALL',
+      startDate: new Date('2026-08-03'),
+      endDate: new Date('2026-12-18'),
+      status: overrides.status ?? 'ACTIVE',
+    },
+  });
+}
+
+export async function createCourse(
+  departmentId: string,
+  overrides: { code?: string; status?: 'DRAFT' | 'ACTIVE' | 'INACTIVE'; credits?: number } = {},
+) {
+  return prisma.course.create({
+    data: {
+      code: overrides.code ?? nextCode('CRS'),
+      title: `Course ${structureCounter}`,
+      departmentId,
+      credits: overrides.credits ?? 4,
+      level: 100,
+      category: 'CORE',
+      status: overrides.status ?? 'ACTIVE',
+    },
+  });
+}
+
+export async function createClassroom(overrides: { capacity?: number } = {}) {
+  const campus =
+    (await prisma.campus.findFirst()) ??
+    (await prisma.campus.create({ data: { code: 'MAIN', name: 'Main Campus' } }));
+  return prisma.classroom.create({
+    data: {
+      campusId: campus.id,
+      building: 'Block A',
+      roomNumber: nextCode('R'),
+      capacity: overrides.capacity ?? 60,
+      type: 'CLASSROOM',
+    },
+  });
+}
+
+export async function createSection(
+  courseId: string,
+  sessionId: string,
+  overrides: {
+    sectionCode?: string;
+    status?: 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'CANCELLED';
+    capacity?: number;
+    meetings?: Array<{
+      dayOfWeek: number;
+      startMinute: number;
+      endMinute: number;
+      classroomId?: string;
+    }>;
+    instructorId?: string;
+  } = {},
+) {
+  return prisma.courseSection.create({
+    data: {
+      courseId,
+      sessionId,
+      sectionCode: overrides.sectionCode ?? 'A',
+      capacity: overrides.capacity ?? 40,
+      status: overrides.status ?? 'DRAFT',
+      meetings: overrides.meetings ? { create: overrides.meetings } : undefined,
+      instructors: overrides.instructorId
+        ? { create: [{ facultyMemberId: overrides.instructorId, role: 'PRIMARY' }] }
+        : undefined,
+    },
+  });
+}

@@ -11,6 +11,9 @@ import { rateLimit } from './common/middleware/rate-limit.js';
 import { requestId } from './common/middleware/request-id.js';
 import { storage, LocalStorageService } from './infrastructure/storage/index.js';
 import { createLocalStorageRouter } from './infrastructure/storage/local-storage.routes.js';
+import { classroomsRouter } from './modules/classrooms/classrooms.routes.js';
+import { coursesRouter } from './modules/courses/courses.routes.js';
+import { sectionsRouter } from './modules/sections/sections.routes.js';
 import { calendarRouter } from './modules/academic-sessions/calendar.routes.js';
 import { auditRouter } from './modules/audit/audit.routes.js';
 import { peopleAdminRouter } from './modules/administrators/administrators.routes.js';
@@ -90,6 +93,9 @@ export function createApp(): Express {
   api.use(studentsRouter);
   api.use(facultyRouter);
   api.use(peopleAdminRouter);
+  api.use(classroomsRouter);
+  api.use(coursesRouter);
+  api.use(sectionsRouter);
   api.use(importsRouter);
   app.use(API_PREFIX, api);
 

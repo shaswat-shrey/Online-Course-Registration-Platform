@@ -441,3 +441,12 @@ export const gradingScaleSchema = z
       });
   });
 export type GradingScaleInput = z.input<typeof gradingScaleSchema>;
+
+/** Field helpers reused by other schema modules. */
+export {
+  name as nameField,
+  optionalText as optionalTextField,
+  optionalId as optionalIdField,
+  credits as creditsField,
+  updateOf as partialUpdateOf,
+};

@@ -318,6 +318,9 @@ model Campus {
   schools     School[]
   departments Department[]
 
+  classrooms Classroom[]
+  sections   CourseSection[]
+
   @@map("campuses")
 }
 
@@ -370,6 +373,8 @@ model Department {
   secondaryFaculty FacultySecondaryDepartment[]
   adminProfiles    AdminProfile[]
 
+  courses Course[]
+
   @@index([schoolId, status])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "departments_name_trgm")
   @@map("departments")
@@ -417,6 +422,8 @@ model Program {
   historyFrom       StudentProgramHistory[] @relation("HistoryFromProgram")
   historyTo         StudentProgramHistory[] @relation("HistoryToProgram")
 
+  courseMappings CourseProgram[]
+
   @@index([departmentId, status])
   @@index([degreeId])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "programs_name_trgm")
@@ -439,6 +446,8 @@ model Specialization {
   requirementGroups RequirementGroup[]
   students          Student[]
 
+  courseMappings CourseSpecialization[]
+
   @@unique([programId, code])
   @@index([programId, status])
   @@map("specializations")
@@ -460,6 +469,8 @@ model RequirementGroup {
 
   program        Program?        @relation(fields: [programId], references: [id], onDelete: Cascade)
   specialization Specialization? @relation(fields: [specializationId], references: [id], onDelete: Cascade)
+
+  courses RequirementCourse[]
 
   @@index([programId])
   @@index([specializationId])
@@ -535,6 +546,8 @@ model AcademicSession {
   registrationPeriod RegistrationPeriod?
   admittedStudents   Student[]               @relation("AdmissionSession")
   programChanges     StudentProgramHistory[]
+
+  sections CourseSection[]
 
   @@index([academicYearId])
   @@index([status])
@@ -788,6 +801,9 @@ model FacultyMember {
   headOf               Department[]                 @relation("DepartmentHead")
   deanOf               School[]                     @relation("SchoolDean")
 
+  coordinatedCourses Course[]            @relation("CourseCoordinator")
+  sectionAssignments SectionInstructor[]
+
   @@index([departmentId, employmentStatus])
   @@map("faculty_members")
 }
@@ -935,4 +951,316 @@ model ImportJobRow {
   @@unique([jobId, rowNumber])
   @@index([jobId, status])
   @@map("import_job_rows")
+}
+
+// ============================================================================
+// Courses, classrooms and sections (Phase 5, DATABASE.md §3.5)
+// ============================================================================
+
+enum CourseStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum CourseMappingType {
+  CORE
+  ELECTIVE
+}
+
+enum RestrictionMode {
+  INCLUDE
+  EXCLUDE
+}
+
+enum RestrictionTarget {
+  DEPARTMENT
+  PROGRAM
+  SPECIALIZATION
+  YEAR_OF_STUDY
+}
+
+enum ClassroomType {
+  LECTURE_HALL
+  CLASSROOM
+  LABORATORY
+  SEMINAR_ROOM
+  COMPUTER_LAB
+  AUDITORIUM
+  STUDIO
+}
+
+enum SectionStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  CANCELLED
+  COMPLETED
+}
+
+enum MeetingType {
+  LECTURE
+  LAB
+  TUTORIAL
+  SEMINAR
+  PRACTICAL
+}
+
+enum InstructorRole {
+  PRIMARY
+  SECONDARY
+  TA
+}
+
+model Course {
+  id                     String                   @id @default(uuid(7)) @db.Uuid
+  code                   String                   @unique @db.VarChar(20)
+  title                  String                   @db.VarChar(200)
+  description            String?                  @db.VarChar(5000)
+  departmentId           String                   @map("department_id") @db.Uuid
+  credits                Decimal                  @db.Decimal(4, 1)
+  /// 100–900 course level.
+  level                  Int                      @db.SmallInt
+  category               CourseCategory
+  recommendedYear        Int?                     @map("recommended_year") @db.SmallInt
+  recommendedSessionType SessionType?             @map("recommended_session_type")
+  syllabus               String?                  @db.Text
+  defaultCapacity        Int?                     @map("default_capacity")
+  minEnrollment          Int?                     @map("min_enrollment")
+  coordinatorId          String?                  @map("coordinator_id") @db.Uuid
+  isRepeatable           Boolean                  @default(false) @map("is_repeatable")
+  status                 CourseStatus             @default(DRAFT)
+  /// Generated full-text vector (raw SQL in the migration).
+  searchVector           Unsupported("tsvector")? @default(dbgenerated()) @map("search_vector")
+  createdAt              DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  department           Department                  @relation(fields: [departmentId], references: [id])
+  coordinator          FacultyMember?              @relation("CourseCoordinator", fields: [coordinatorId], references: [id], onDelete: SetNull)
+  outcomes             CourseOutcome[]
+  assessmentComponents CourseAssessmentComponent[]
+  prerequisiteGroups   PrerequisiteGroup[]
+  requiredBy           PrerequisiteItem[]          @relation("PrerequisiteRequired")
+  corequisites         CourseCorequisite[]         @relation("CoreqOwner")
+  corequisiteOf        CourseCorequisite[]         @relation("CoreqTarget")
+  programs             CourseProgram[]
+  specializations      CourseSpecialization[]
+  restrictions         CourseRestriction[]
+  requirementGroups    RequirementCourse[]
+  sections             CourseSection[]
+
+  @@index([departmentId, status])
+  @@index([searchVector], type: Gin, map: "courses_search_vector")
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "courses_title_trgm")
+  @@index([code(ops: raw("gin_trgm_ops"))], type: Gin, map: "courses_code_trgm")
+  @@map("courses")
+}
+
+model CourseOutcome {
+  id          String @id @default(uuid(7)) @db.Uuid
+  courseId    String @map("course_id") @db.Uuid
+  position    Int    @db.SmallInt
+  description String @db.VarChar(1000)
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, position])
+  @@map("course_outcomes")
+}
+
+model CourseAssessmentComponent {
+  id       String  @id @default(uuid(7)) @db.Uuid
+  courseId String  @map("course_id") @db.Uuid
+  position Int     @db.SmallInt
+  name     String  @db.VarChar(150)
+  weight   Decimal @db.Decimal(5, 2)
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, position])
+  @@map("course_assessment_components")
+}
+
+/// AND-group of prerequisites; any one item in the group satisfies it.
+model PrerequisiteGroup {
+  id       String @id @default(uuid(7)) @db.Uuid
+  courseId String @map("course_id") @db.Uuid
+  position Int    @db.SmallInt
+
+  course Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  items  PrerequisiteItem[]
+
+  @@index([courseId])
+  @@map("prerequisite_groups")
+}
+
+model PrerequisiteItem {
+  id               String  @id @default(uuid(7)) @db.Uuid
+  groupId          String  @map("group_id") @db.Uuid
+  requiredCourseId String  @map("required_course_id") @db.Uuid
+  minGradeLetter   String? @map("min_grade_letter") @db.VarChar(5)
+
+  group          PrerequisiteGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  requiredCourse Course            @relation("PrerequisiteRequired", fields: [requiredCourseId], references: [id])
+
+  @@unique([groupId, requiredCourseId])
+  @@index([requiredCourseId])
+  @@map("prerequisite_items")
+}
+
+model CourseCorequisite {
+  courseId      String @map("course_id") @db.Uuid
+  corequisiteId String @map("corequisite_id") @db.Uuid
+
+  course      Course @relation("CoreqOwner", fields: [courseId], references: [id], onDelete: Cascade)
+  corequisite Course @relation("CoreqTarget", fields: [corequisiteId], references: [id])
+
+  @@id([courseId, corequisiteId])
+  @@index([corequisiteId])
+  @@map("course_corequisites")
+}
+
+model CourseProgram {
+  courseId    String            @map("course_id") @db.Uuid
+  programId   String            @map("program_id") @db.Uuid
+  mappingType CourseMappingType @map("mapping_type")
+
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, programId])
+  @@index([programId])
+  @@map("course_programs")
+}
+
+model CourseSpecialization {
+  courseId         String            @map("course_id") @db.Uuid
+  specializationId String            @map("specialization_id") @db.Uuid
+  mappingType      CourseMappingType @map("mapping_type")
+
+  course         Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  specialization Specialization @relation(fields: [specializationId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, specializationId])
+  @@index([specializationId])
+  @@map("course_specializations")
+}
+
+/// Include/exclude rule on a course or a section (exactly one owner, CHECK in SQL).
+model CourseRestriction {
+  id          String            @id @default(uuid(7)) @db.Uuid
+  courseId    String?           @map("course_id") @db.Uuid
+  sectionId   String?           @map("section_id") @db.Uuid
+  mode        RestrictionMode
+  targetType  RestrictionTarget @map("target_type")
+  /// Department, program or specialization id.
+  targetId    String?           @map("target_id") @db.Uuid
+  /// Year of study for YEAR_OF_STUDY rules.
+  targetValue Int?              @map("target_value") @db.SmallInt
+
+  course  Course?        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  section CourseSection? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([sectionId])
+  @@map("course_restrictions")
+}
+
+/// Courses listed in an ALL_OF / CREDITS_FROM_LIST requirement group.
+model RequirementCourse {
+  requirementGroupId String @map("requirement_group_id") @db.Uuid
+  courseId           String @map("course_id") @db.Uuid
+
+  requirementGroup RequirementGroup @relation(fields: [requirementGroupId], references: [id], onDelete: Cascade)
+  course           Course           @relation(fields: [courseId], references: [id])
+
+  @@id([requirementGroupId, courseId])
+  @@index([courseId])
+  @@map("requirement_courses")
+}
+
+model Classroom {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  campusId   String        @map("campus_id") @db.Uuid
+  building   String        @db.VarChar(100)
+  roomNumber String        @map("room_number") @db.VarChar(30)
+  name       String?       @db.VarChar(150)
+  capacity   Int
+  type       ClassroomType
+  equipment  String[]      @default([])
+  status     EntityStatus  @default(ACTIVE)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  campus   Campus           @relation(fields: [campusId], references: [id])
+  meetings SectionMeeting[]
+
+  @@unique([campusId, building, roomNumber])
+  @@map("classrooms")
+}
+
+model CourseSection {
+  id               String        @id @default(uuid(7)) @db.Uuid
+  courseId         String        @map("course_id") @db.Uuid
+  sessionId        String        @map("session_id") @db.Uuid
+  sectionCode      String        @map("section_code") @db.VarChar(20)
+  capacity         Int
+  enrolledCount    Int           @default(0) @map("enrolled_count")
+  waitlistCapacity Int           @default(0) @map("waitlist_capacity")
+  waitlistCount    Int           @default(0) @map("waitlist_count")
+  campusId         String?       @map("campus_id") @db.Uuid
+  status           SectionStatus @default(DRAFT)
+  registrationOpen Boolean       @default(true) @map("registration_open")
+  notes            String?       @db.VarChar(2000)
+  publishedAt      DateTime?     @map("published_at") @db.Timestamptz(3)
+  cancelledAt      DateTime?     @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason     String?       @map("cancel_reason") @db.VarChar(500)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  course       Course              @relation(fields: [courseId], references: [id])
+  session      AcademicSession     @relation(fields: [sessionId], references: [id])
+  campus       Campus?             @relation(fields: [campusId], references: [id])
+  meetings     SectionMeeting[]
+  instructors  SectionInstructor[]
+  restrictions CourseRestriction[]
+
+  @@unique([courseId, sessionId, sectionCode])
+  @@index([sessionId, status])
+  @@index([courseId, sessionId])
+  @@map("course_sections")
+}
+
+model SectionMeeting {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  sectionId   String      @map("section_id") @db.Uuid
+  classroomId String?     @map("classroom_id") @db.Uuid
+  /// 1 = Monday … 7 = Sunday.
+  dayOfWeek   Int         @map("day_of_week") @db.SmallInt
+  /// Minutes after midnight in the university time zone.
+  startMinute Int         @map("start_minute") @db.SmallInt
+  endMinute   Int         @map("end_minute") @db.SmallInt
+  type        MeetingType @default(LECTURE)
+
+  section   CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  classroom Classroom?    @relation(fields: [classroomId], references: [id])
+
+  @@index([sectionId])
+  @@index([classroomId, dayOfWeek])
+  @@map("section_meetings")
+}
+
+model SectionInstructor {
+  sectionId       String         @map("section_id") @db.Uuid
+  facultyMemberId String         @map("faculty_member_id") @db.Uuid
+  role            InstructorRole
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  section       CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  facultyMember FacultyMember @relation(fields: [facultyMemberId], references: [id])
+
+  @@id([sectionId, facultyMemberId])
+  @@index([facultyMemberId])
+  @@map("section_instructors")
 }

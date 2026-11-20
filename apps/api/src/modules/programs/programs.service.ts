@@ -24,6 +24,9 @@ type GroupRow = {
   minCredits: Prisma.Decimal | null;
   category: string | null;
   position: number;
+  courses?: Array<{
+    course: { id: string; code: string; title: string; credits: Prisma.Decimal; status: string };
+  }>;
 };
 const groupDto = (g: GroupRow) => ({
   id: g.id,
@@ -33,8 +36,23 @@ const groupDto = (g: GroupRow) => ({
   minCredits: num(g.minCredits),
   category: g.category,
   position: g.position,
+  courses: (g.courses ?? []).map((c) => ({
+    id: c.course.id,
+    code: c.course.code,
+    title: c.course.title,
+    credits: num(c.course.credits)!,
+    status: c.course.status,
+  })),
 });
 const groupOrder = [{ position: 'asc' as const }, { createdAt: 'asc' as const }];
+const groupInclude = {
+  courses: {
+    include: {
+      course: { select: { id: true, code: true, title: true, credits: true, status: true } },
+    },
+    orderBy: { course: { code: 'asc' as const } },
+  },
+} as const;
 
 type SpecRow = {
   id: string;
@@ -70,9 +88,9 @@ const detailInclude = {
   ...listInclude,
   specializations: {
     orderBy: { name: 'asc' as const },
-    include: { requirementGroups: { orderBy: groupOrder } },
+    include: { requirementGroups: { orderBy: groupOrder, include: groupInclude } },
   },
-  requirementGroups: { orderBy: groupOrder },
+  requirementGroups: { orderBy: groupOrder, include: groupInclude },
 } as const;
 
 type ProgramRow = Prisma.ProgramGetPayload<{ include: typeof listInclude }> &
@@ -412,7 +430,7 @@ export async function deleteSpecialization(actor: ActorContext, id: string) {
 
 type GroupInput = z.output<typeof requirementGroupCreateSchema>;
 
-async function groupOwnerScope(
+export async function groupOwnerScope(
   actor: ActorContext,
   owner: { programId?: string | null; specializationId?: string | null },
 ) {
