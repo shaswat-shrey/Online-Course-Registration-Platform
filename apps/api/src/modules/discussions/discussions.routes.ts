@@ -7,6 +7,7 @@ import {
   threadCreateSchema,
   threadUpdateSchema,
 } from '@ucrams/shared';
+import { userRateLimit } from '../../common/middleware/rate-limit.js';
 import { getActor } from '../../common/context/actor.js';
 import { defineRoute } from '../../common/http/define-route.js';
 import { sendCreated, sendOk } from '../../common/http/response.js';
@@ -14,6 +15,7 @@ import { successEnvelope } from '../../openapi/registry.js';
 import * as service from './discussions.service.js';
 
 export const discussionsRouter = Router();
+const postLimit = userRateLimit('postLimit', 30, 60);
 const tags = ['Discussions'];
 const access = { authenticated: true } as const;
 
@@ -137,6 +139,7 @@ defineRoute(
     summary: 'Start a question or discussion in a section',
     tags,
     access,
+    middleware: [postLimit],
     request: { params: idParamSchema, body: threadCreateSchema },
     responses: { 201: { description: 'Created', schema: successEnvelope(threadDto) } },
   },
@@ -210,6 +213,7 @@ defineRoute(
     summary: 'Reply to a thread',
     tags,
     access,
+    middleware: [postLimit],
     request: { params: idParamSchema, body: postCreateSchema },
     responses: { 201: { description: 'Posted', schema: successEnvelope(postDto) } },
   },

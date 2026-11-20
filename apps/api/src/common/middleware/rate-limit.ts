@@ -76,3 +76,22 @@ export function strictRateLimit(buckets: LimiterOptions[]): RequestHandler {
     }
   };
 }
+
+/**
+ * Per-user limit for endpoints that create content other people receive
+ * (messages, posts, tickets, feedback) or that are expensive (exports).
+ * Runs after authentication, so it keys on the caller, not the IP.
+ */
+export function userRateLimit(
+  name: string,
+  points: number,
+  durationSeconds: number,
+): RequestHandler {
+  return rateLimit({
+    name: `user-${name}`,
+    points,
+    durationSeconds,
+    key: (req) =>
+      (req as Req & { actor?: { userId: string } }).actor?.userId ?? req.ip ?? 'anonymous',
+  });
+}

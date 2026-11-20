@@ -316,6 +316,8 @@ export async function approveGrades(actor: ActorContext, sectionId: string) {
   let after: () => void = () => undefined;
   const posted = await prisma.$transaction(
     async (tx) => {
+      // Serialise concurrent approvals: the second one waits, then sees POSTED.
+      await tx.$queryRaw`SELECT id FROM final_grade_submissions WHERE section_id = ${sectionId}::uuid FOR UPDATE`;
       const sub = await tx.finalGradeSubmission.findUnique({
         where: { sectionId },
         include: {

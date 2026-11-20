@@ -3,7 +3,6 @@ import type { ActorContext } from '../../common/context/actor.js';
 import {
   BusinessRuleError,
   ConflictError,
-  ForbiddenError,
   NotFoundError,
 } from '../../common/exceptions/app-error.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
@@ -89,7 +88,8 @@ export async function studentRecords(actor: ActorContext, studentId: string) {
       schoolId: s.program.department.schoolId,
     })
   )
-    throw new ForbiddenError();
+    // Same answer as a missing student, so ids cannot be probed.
+    throw new NotFoundError('Student');
   return recordsOf(studentId);
 }
 

@@ -12,6 +12,7 @@ import {
   messageSearchQuerySchema,
   messageUpdateSchema,
 } from '@ucrams/shared';
+import { userRateLimit } from '../../common/middleware/rate-limit.js';
 import { getActor } from '../../common/context/actor.js';
 import { defineRoute } from '../../common/http/define-route.js';
 import { sendCreated, sendOk } from '../../common/http/response.js';
@@ -19,6 +20,7 @@ import { successEnvelope } from '../../openapi/registry.js';
 import * as service from './messaging.service.js';
 
 export const messagingRouter = Router();
+const messageLimit = userRateLimit('messageLimit', 30, 60);
 const tags = ['Messaging'];
 const access = { permission: 'message:send' } as const;
 
@@ -168,6 +170,7 @@ defineRoute(
     summary: 'Message someone directly (opens or reuses your conversation with them)',
     tags,
     access,
+    middleware: [messageLimit],
     request: { body: directConversationSchema },
     responses: { 201: { description: 'Sent', schema: successEnvelope(started) } },
   },
@@ -184,6 +187,7 @@ defineRoute(
     summary: 'Write to university support (your support conversation is created on first use)',
     tags,
     access,
+    middleware: [messageLimit],
     request: { body: z.object({ body: z.string().trim().min(1).max(MESSAGE_MAX_LENGTH) }) },
     responses: { 201: { description: 'Sent', schema: successEnvelope(started) } },
   },
@@ -287,6 +291,7 @@ defineRoute(
     summary: 'Send a message',
     tags,
     access,
+    middleware: [messageLimit],
     request: { params: idParamSchema, body: messageCreateSchema },
     responses: { 201: { description: 'Sent', schema: successEnvelope(messageDto) } },
   },

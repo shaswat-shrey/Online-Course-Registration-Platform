@@ -1,7 +1,7 @@
 # Development Roadmap
 
 **Current phase:** Phase 8 — Student portal (**complete**, 2026-11-20)
-**Next phase:** Phase 12 — Testing and security review
+**Next phase:** Phase 13 — Finalization
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -235,8 +235,13 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 **Verified manually (browser):** scoped department-admin dashboard (counts and charts), section enrollment report.
 
 ## Phase 12 — Testing and security review
-- [ ] Coverage gaps, full E2E suite, permission matrix tests, concurrency, OWASP review, load test of registration (k6, S)
-- [ ] Fix all findings
+- [x] Coverage measured (`npm run test:coverage -w @ucrams/api`); gaps closed for the course planner and academic records API, classrooms, the email outbox, every report, and the remaining announcement audiences. API line coverage 81 % → 84.9 % (entry points and the S3 driver excluded)
+- [x] Permission matrix test: every permission-gated route answers 403 to every system role (and a role-less user) that lacks its permission — 588 cases — next to the existing default-deny test (anonymous → 401 on every protected route)
+- [x] Concurrency tests: parallel ticket numbering, double grade approval, parallel announcement fan-out (registration seat races were already covered by AC-REG-001)
+- [x] OWASP Top 10 review with three fixes ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)): no student-id enumeration through records (SR-01), per-user limits on messages, posts, tickets, feedback and exports (SR-02), serialised grade approval (SR-03)
+- [x] Dependency audit: 0 vulnerabilities
+- [x] Load test script for registration (`load/registration.k6.js`, k6) — written, not executed here (k6 not installed); documented in TESTING.md
+- [x] Full suites green: API 1,050 · shared 48 · web 60 · E2E 54 runs
 
 ## Phase 13 — Finalization
 - [ ] Production compose profile, deployment guide, migration and backup procedures, monitoring, health checks, production checklist, docs consistency pass
@@ -425,6 +430,7 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | Posting completes registrations through the registration engine (`endRegistration`) | Keeps seat counters, events and the reconcile job consistent |
 
 ## Changelog
+- 2026-11-21 — Phase 12 complete: permission matrix (588 cases), coverage gaps closed, concurrency tests, OWASP review with three fixes, k6 load script; 1,158 unit/integration + 54 E2E runs.
 - 2026-11-21 — Phase 11 complete: administrator dashboard with scoped, cached analytics; 15-report center; CSV/XLSX exports with background jobs; 565 unit/integration + 54 E2E runs.
 - 2026-11-21 — Phase 10 complete: attendance, assessments and gradebook, final grade workflow with posting, grade changes, transcripts with repeat policy, room availability; 551 unit/integration + 52 E2E runs.
 - 2026-11-21 — Phase 9 complete: messaging with real-time delivery, discussions, announcements to every audience with scheduling and read tracking, notification preferences and email log, feedback and support tickets; 518 unit/integration + 48 E2E runs.

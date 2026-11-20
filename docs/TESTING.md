@@ -113,3 +113,10 @@ Viewports: desktop 1440×900 and mobile 390×844 for student journeys.
 ## 7. Phase exit criteria
 
 A phase is done only when: its tests pass locally, typecheck and lint are clean, migrations apply from scratch, the affected flows were exercised manually in the running app, and docs/roadmap are updated.
+
+## Phase 12 additions
+
+- **Coverage:** `npm run test:coverage -w @ucrams/api` (V8; generated client, tests and fixtures excluded) and `npm run test:coverage -w @ucrams/web`.
+- **Permission matrix:** `apps/api/src/common/http/permission-matrix.test.ts` signs in one user per system role and asserts 403 on every route whose permission the role lacks.
+- **Concurrency:** `apps/api/src/modules/concurrency.test.ts` (ticket numbers, grade approval, announcement fan-out) and AC-REG-001 in `registrations.test.ts`.
+- **Load (optional):** install [k6](https://k6.io), seed the database, clear `ucrams:rl:*` in Redis, then run `k6 run -e BASE_URL=http://localhost:4000/api/v1 -e PASSWORD=<seed password> -e SECTION_ID=<uuid> -e EMAILS=<comma-separated student emails> load/registration.k6.js`. Thresholds: p95 registration latency below 800 ms, more than 99 % correct answers.

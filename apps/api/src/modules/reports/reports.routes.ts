@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { idParamSchema, paginationQuerySchema } from '@ucrams/shared';
+import { userRateLimit } from '../../common/middleware/rate-limit.js';
 import { getActor } from '../../common/context/actor.js';
 import { NotFoundError } from '../../common/exceptions/app-error.js';
 import { defineRoute } from '../../common/http/define-route.js';
@@ -11,6 +12,7 @@ import * as exportsService from './exports.service.js';
 import { REPORTS, reportByKey, runReport } from './reports.js';
 
 export const reportsRouter = Router();
+const exportLimit = userRateLimit('exportLimit', 30, 600);
 const tags = ['Reports and analytics'];
 const uuid = z.uuid().optional();
 const filterSchema = z.object({
@@ -181,6 +183,7 @@ defineRoute(
     summary: 'Export a report to CSV or XLSX (background above 5,000 rows); audited',
     tags,
     access: { permission: 'report:export' },
+    middleware: [exportLimit],
     request: {
       params: z.object({ key: z.string().max(60) }),
       body: z.object({

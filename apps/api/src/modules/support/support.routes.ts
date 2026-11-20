@@ -15,6 +15,7 @@ import {
   ticketReplySchema,
   ticketUpdateSchema,
 } from '@ucrams/shared';
+import { userRateLimit } from '../../common/middleware/rate-limit.js';
 import { getActor } from '../../common/context/actor.js';
 import { defineRoute } from '../../common/http/define-route.js';
 import { sendCreated, sendOk, sendPaginated } from '../../common/http/response.js';
@@ -24,6 +25,7 @@ import * as feedback from './feedback.service.js';
 import * as tickets from './tickets.service.js';
 
 export const supportRouter = Router();
+const caseLimit = userRateLimit('caseLimit', 20, 3600);
 const feedbackTags = ['Feedback'];
 const ticketTags = ['Support tickets'];
 
@@ -134,6 +136,7 @@ defineRoute(
     summary: 'Submit feedback (optionally anonymous to administrators)',
     tags: feedbackTags,
     access: { permission: 'feedback:submit' },
+    middleware: [caseLimit],
     request: { body: feedbackCreateSchema },
     responses: { 201: { description: 'Submitted', schema: successEnvelope(feedbackDto) } },
   },
@@ -256,6 +259,7 @@ defineRoute(
     summary: 'Open a support ticket',
     tags: ticketTags,
     access: { permission: 'ticket:submit' },
+    middleware: [caseLimit],
     request: { body: ticketCreateSchema },
     responses: { 201: { description: 'Created', schema: successEnvelope(ticketDto) } },
   },
