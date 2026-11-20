@@ -228,6 +228,106 @@ export const routes: RouteObject[] = [
               })),
             },
             {
+              element: <RequirePermission permission="student:read" />,
+              children: [
+                {
+                  path: 'students',
+                  handle: crumb('Students'),
+                  children: [
+                    {
+                      index: true,
+                      lazy: lazyPage(async () => ({
+                        default: (await import('@/features/people/pages/students-pages'))
+                          .StudentsPage,
+                      })),
+                    },
+                    {
+                      path: ':studentId',
+                      handle: crumb('Student'),
+                      lazy: lazyPage(async () => ({
+                        default: (await import('@/features/people/pages/students-pages'))
+                          .StudentDetailPage,
+                      })),
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              element: <RequirePermission permission="faculty:read" />,
+              children: [
+                {
+                  path: 'faculty',
+                  handle: crumb('Faculty'),
+                  children: [
+                    {
+                      index: true,
+                      lazy: lazyPage(async () => ({
+                        default: (await import('@/features/people/pages/faculty-pages'))
+                          .FacultyPage,
+                      })),
+                    },
+                    {
+                      path: ':facultyId',
+                      handle: crumb('Faculty member'),
+                      lazy: lazyPage(async () => ({
+                        default: (await import('@/features/people/pages/faculty-pages'))
+                          .FacultyDetailPage,
+                      })),
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              element: <RequirePermission permission="admin:manage" />,
+              children: [
+                {
+                  path: 'administrators',
+                  handle: crumb('Administrators'),
+                  children: [
+                    {
+                      index: true,
+                      lazy: lazyPage(async () => ({
+                        default: (await import('@/features/people/pages/administrators-pages'))
+                          .AdministratorsPage,
+                      })),
+                    },
+                    {
+                      path: ':adminId',
+                      handle: crumb('Administrator'),
+                      lazy: lazyPage(async () => ({
+                        default: (await import('@/features/people/pages/administrators-pages'))
+                          .AdministratorDetailPage,
+                      })),
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              // Import permission depends on the kind; the API checks it per request.
+              path: 'imports',
+              handle: crumb('Imports'),
+              children: [
+                {
+                  path: 'new',
+                  handle: crumb('New import'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/imports/pages/import-pages')).NewImportPage,
+                  })),
+                },
+                {
+                  path: ':importId',
+                  handle: crumb('Import'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/imports/pages/import-pages'))
+                      .ImportDetailPage,
+                  })),
+                },
+              ],
+            },
+            {
               element: <RequirePermission permission="rbac:read" />,
               children: [
                 {
@@ -265,8 +365,26 @@ export const routes: RouteObject[] = [
               ],
             },
           ]),
-          portalRoutes('faculty', 'Faculty'),
-          portalRoutes('student', 'Student'),
+          portalRoutes('faculty', 'Faculty', [
+            {
+              path: 'profile',
+              handle: crumb('Profile'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/profile/pages/profile-pages'))
+                  .FacultyProfilePage,
+              })),
+            },
+          ]),
+          portalRoutes('student', 'Student', [
+            {
+              path: 'profile',
+              handle: crumb('Profile'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/profile/pages/profile-pages'))
+                  .StudentProfilePage,
+              })),
+            },
+          ]),
         ],
       },
       { element: <CenteredLayout />, children: [{ path: '*', element: <NotFoundPage /> }] },

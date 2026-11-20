@@ -1,3 +1,9 @@
+export interface Leader {
+  id: string;
+  name: string;
+  designation: string;
+}
+
 export interface Ref {
   id: string;
   name: string;
@@ -39,6 +45,7 @@ export interface School {
   contactEmail: string | null;
   contactPhone: string | null;
   website: string | null;
+  dean: Leader | null;
   status: string;
   departmentCount: number;
   programCount?: number;
@@ -56,9 +63,12 @@ export interface Department {
   contactEmail: string | null;
   contactPhone: string | null;
   officeLocation: string | null;
+  head: Leader | null;
   status: string;
   programCount: number;
+  facultyCount: number;
   specializationCount?: number;
+  studentCount?: number;
   canManage: boolean;
   createdAt: string;
   updatedAt: string;

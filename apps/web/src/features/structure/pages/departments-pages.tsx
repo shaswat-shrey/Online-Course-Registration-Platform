@@ -9,7 +9,7 @@ import { DataTable } from '@/components/tables/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useListParams } from '@/hooks/use-list-params';
-import { useCan } from '@/store/auth-store';
+import { useCanAt } from '@/store/auth-store';
 import {
   useDeleteDepartment,
   useDepartment,
@@ -19,6 +19,7 @@ import {
 } from '../api/structure-queries';
 import type { Department, Program } from '../api/types';
 import { DepartmentDialog, ProgramDialog } from '../components/entity-dialogs';
+import { DepartmentHeadField } from '../components/leader-field';
 import { RowActions } from '../components/row-actions';
 
 const FILTERS = ['status', 'schoolId'] as const;
@@ -33,7 +34,8 @@ export function DepartmentsPage() {
     limit: 20,
   });
   const schools = useSchoolOptions();
-  const canManage = useCan('department:manage');
+  // Department-scoped admins can edit their department but not create new ones (TD-010).
+  const canCreate = useCanAt('department:manage', 'school-or-global');
   const remove = useDeleteDepartment();
   const navigate = useNavigate();
   return (
@@ -42,7 +44,7 @@ export function DepartmentsPage() {
         title="Departments"
         description="Departments own programs and courses."
         actions={
-          canManage ? (
+          canCreate ? (
             <DepartmentDialog
               defaultSchoolId={filters.schoolId || undefined}
               onSaved={(d) => navigate(`/admin/departments/${d.id}`)}
@@ -181,17 +183,30 @@ export function DepartmentDetailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg bg-secondary p-3">
-                <p className="text-2xl font-semibold tabular-nums">{d.programCount}</p>
-                <p className="text-xs text-muted-foreground">Programs</p>
-              </div>
-              <div className="rounded-lg bg-secondary p-3">
-                <p className="text-2xl font-semibold tabular-nums">{d.specializationCount ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Specializations</p>
-              </div>
+              {[
+                ['Programs', d.programCount],
+                ['Specializations', d.specializationCount ?? 0],
+                ['Faculty', d.facultyCount],
+                ['Active students', d.studentCount ?? 0],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg bg-secondary p-3">
+                  <p className="text-2xl font-semibold tabular-nums">{value}</p>
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                </div>
+              ))}
             </div>
             <DetailList
               items={[
+                {
+                  label: 'Head',
+                  value: (
+                    <DepartmentHeadField
+                      departmentId={d.id}
+                      head={d.head}
+                      canManage={d.canManage}
+                    />
+                  ),
+                },
                 { label: 'Campus', value: d.campus?.name ?? 'Same as faculty' },
                 { label: 'Office', value: d.officeLocation },
                 { label: 'Email', value: d.contactEmail },
@@ -199,10 +214,6 @@ export function DepartmentDetailPage() {
               ]}
             />
             {d.description && <p className="text-sm text-muted-foreground">{d.description}</p>}
-            <p className="text-xs text-muted-foreground">
-              Head of department, faculty members, courses and students appear here once those
-              modules are set up.
-            </p>
           </CardContent>
         </Card>
         <Card className="lg:col-span-2">

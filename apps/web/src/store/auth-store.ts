@@ -50,3 +50,30 @@ export function homePath(me: MeDto | null): string {
 export function useCan(permission: PermissionKey): boolean {
   return useAuthStore((s) => s.me?.permissions.includes(permission) ?? false);
 }
+
+type GrantTarget = { schoolId?: string | null; departmentId?: string | null };
+
+/** Mirrors the server's scope rules for UI hints (the API still enforces). */
+export function grantCovers(
+  permission: PermissionKey,
+  target: GrantTarget | 'global' | 'school-or-global',
+) {
+  const grants = useAuthStore.getState().me?.grants[permission] ?? [];
+  return grants.some((g) => {
+    if (g.scope === 'GLOBAL') return true;
+    if (target === 'global') return false;
+    if (target === 'school-or-global') return g.scope === 'SCHOOL';
+    if (g.scope === 'SCHOOL') return !!target.schoolId && g.id === target.schoolId;
+    if (g.scope === 'DEPARTMENT') return !!target.departmentId && g.id === target.departmentId;
+    return false;
+  });
+}
+
+/** Re-renders when grants change. */
+export function useCanAt(
+  permission: PermissionKey,
+  target: GrantTarget | 'global' | 'school-or-global',
+): boolean {
+  useAuthStore((s) => s.me?.grants);
+  return grantCovers(permission, target);
+}

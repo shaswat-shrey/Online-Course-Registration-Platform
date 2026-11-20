@@ -1,7 +1,7 @@
 import { KeyRound, LogOut } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Portal } from '@ucrams/shared';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/shared/user-avatar';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -26,11 +26,12 @@ export function UserMenu({ portal }: { portal: Portal }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-9 gap-2 px-1.5" aria-label="Account menu">
-          <Avatar className="size-7">
-            <AvatarFallback className="bg-primary text-xs text-primary-foreground">
-              {initials(me.user.firstName, me.user.lastName)}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            firstName={me.user.firstName}
+            lastName={me.user.lastName}
+            url={me.user.avatarUrl}
+            className="size-7 text-xs"
+          />
           <span className="hidden text-sm font-medium md:inline">{me.user.firstName}</span>
         </Button>
       </DropdownMenuTrigger>

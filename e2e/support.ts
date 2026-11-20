@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 import { parse } from 'dotenv';
+import { Redis } from 'ioredis';
 
 const env = parse(readFileSync(new URL('../apps/api/.env', import.meta.url)));
 /** Development seed password (apps/api/.env), never a production credential. */
@@ -15,7 +16,22 @@ export const ACCOUNTS = {
   student: 'student.cs@ucrams.local',
 } as const;
 
+/**
+ * The suite signs in more often from one IP than the per-IP login limit allows,
+ * so clear the dev API's auth rate-limit counters (rl:* keys only) before each sign-in.
+ */
+export async function clearRateLimits() {
+  const redis = new Redis(process.env.REDIS_URL ?? env.REDIS_URL ?? 'redis://localhost:6379/0');
+  try {
+    const keys = await redis.keys('ucrams:rl:*');
+    if (keys.length) await redis.del(...keys);
+  } finally {
+    redis.disconnect();
+  }
+}
+
 export async function signIn(page: Page, email: string, password = DEV_PASSWORD) {
+  await clearRateLimits();
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);

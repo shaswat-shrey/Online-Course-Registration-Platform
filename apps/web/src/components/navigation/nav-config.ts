@@ -10,6 +10,10 @@ import {
   Percent,
   School,
   ShieldCheck,
+  UserCog,
+  UserRound,
+  Users,
+  Contact,
   type LucideIcon,
 } from 'lucide-react';
 import type { PermissionKey, Portal } from '@ucrams/shared';
@@ -47,6 +51,19 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
       ],
     },
     {
+      label: 'People',
+      items: [
+        { label: 'Students', to: '/admin/students', icon: Users, permission: 'student:read' },
+        { label: 'Faculty', to: '/admin/faculty', icon: Contact, permission: 'faculty:read' },
+        {
+          label: 'Administrators',
+          to: '/admin/administrators',
+          icon: UserCog,
+          permission: 'admin:manage',
+        },
+      ],
+    },
+    {
       label: 'Academic calendar',
       items: [
         { label: 'Sessions', to: '/admin/academic-sessions', icon: CalendarDays },
@@ -72,14 +89,26 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
       label: 'General',
       items: [{ label: 'Overview', to: '/faculty/dashboard', icon: LayoutDashboard }],
     },
-    { label: 'Account', items: [{ label: 'Security', to: '/faculty/account', icon: KeyRound }] },
+    {
+      label: 'Account',
+      items: [
+        { label: 'Profile', to: '/faculty/profile', icon: UserRound },
+        { label: 'Security', to: '/faculty/account', icon: KeyRound },
+      ],
+    },
   ],
   student: [
     {
       label: 'General',
       items: [{ label: 'Overview', to: '/student/dashboard', icon: LayoutDashboard }],
     },
-    { label: 'Account', items: [{ label: 'Security', to: '/student/account', icon: KeyRound }] },
+    {
+      label: 'Account',
+      items: [
+        { label: 'Profile', to: '/student/profile', icon: UserRound },
+        { label: 'Security', to: '/student/account', icon: KeyRound },
+      ],
+    },
   ],
 };
 

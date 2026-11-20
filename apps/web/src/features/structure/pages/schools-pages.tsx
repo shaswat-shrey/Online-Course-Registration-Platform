@@ -9,10 +9,11 @@ import { DataTable } from '@/components/tables/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useListParams } from '@/hooks/use-list-params';
-import { useCan } from '@/store/auth-store';
+import { useCanAt } from '@/store/auth-store';
 import { useDeleteSchool, useDepartments, useSchool, useSchools } from '../api/structure-queries';
 import type { Department, School } from '../api/types';
 import { DepartmentDialog, SchoolDialog } from '../components/entity-dialogs';
+import { SchoolDeanField } from '../components/leader-field';
 import { RowActions } from '../components/row-actions';
 
 const FILTERS = ['status'] as const;
@@ -20,7 +21,8 @@ const FILTERS = ['status'] as const;
 export function SchoolsPage() {
   const { page, q, filters, update } = useListParams(FILTERS);
   const schools = useSchools({ page, q, status: filters.status, limit: 20 });
-  const canManage = useCan('school:manage');
+  // Creating and deleting faculties is university-wide; school admins edit their own.
+  const canManage = useCanAt('school:manage', 'global');
   const remove = useDeleteSchool();
   const navigate = useNavigate();
   return (
@@ -122,8 +124,8 @@ export function SchoolDetailPage() {
   const { schoolId = '' } = useParams();
   const school = useSchool(schoolId);
   const departments = useDepartments({ schoolId, limit: 100 });
-  const canManageSchool = useCan('school:manage');
-  const canCreateDept = useCan('department:manage');
+  const canManageSchool = useCanAt('school:manage', { schoolId });
+  const canCreateDept = useCanAt('department:manage', { schoolId });
   const navigate = useNavigate();
   if (school.isPending) return <LoadingRows rows={5} />;
   if (school.isError)
@@ -169,6 +171,12 @@ export function SchoolDetailPage() {
             </div>
             <DetailList
               items={[
+                {
+                  label: 'Dean',
+                  value: (
+                    <SchoolDeanField schoolId={s.id} dean={s.dean} canManage={canManageSchool} />
+                  ),
+                },
                 { label: 'Campus', value: s.campus?.name },
                 { label: 'Email', value: s.contactEmail },
                 { label: 'Phone', value: s.contactPhone },

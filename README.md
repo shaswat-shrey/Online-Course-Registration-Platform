@@ -2,7 +2,7 @@
 
 A full-stack platform for managing a university's academic structure, course catalog, course sections, faculty assignments, student registration (with waitlists and concurrency-safe seat allocation), communication, and reporting, through Administrator, Faculty and Student portals.
 
-> **Project status: Phase 3 (university structure and academic calendar) complete.** Authentication, access control, the university's academic structure and its calendar are managed end to end. Courses and sections (Phase 5) and student/faculty records (Phase 4) come next. Progress: [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md).
+> **Project status: Phase 4 (student and faculty management) complete.** Authentication, access control, the academic structure, the calendar, and student, faculty and administrator records are managed end to end. Courses and sections (Phase 5) come next. Progress: [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md).
 
 ## What works today
 
@@ -10,8 +10,10 @@ A full-stack platform for managing a university's academic structure, course cat
 - **Access control:** six system roles with 74 granular permissions, scoped assignments (university / faculty-school / department), relationship-scoped faculty and student roles, custom roles, a privilege-escalation guard, and server-side enforcement on every route (default deny).
 - **University structure:** university profile and campuses, faculties/schools, departments, degrees, programs with requirement groups, and specializations. Department admins manage only their own department; nothing in use can be deleted, and nothing with active children can be deactivated.
 - **Academic calendar:** academic years and sessions with a lifecycle (planned → active → completed → archived) and a current session per type, per-session registration policy (credit limits, approvals, waitlists), registration periods and deadlines in the university's time zone, priority windows, and configurable grading scales.
-- **Administration portal:** overview, the structure and calendar pages above, roles and permissions (permission editing for super admins), audit log with filters, and account security.
-- **Faculty and student portals:** overview and account security. Portal features arrive in later phases.
+- **People:** student records (program, specialization, year, status, contact details, program-change history), registration holds, faculty records (designation, primary and joint departments, office, load limit, heads of department and deans) with a public directory, and administrator profiles. Accounts are created with invitation emails; admins can suspend, reactivate, deactivate, unlock and re-invite within their scope. Student and employee numbers are generated.
+- **Bulk import:** CSV or Excel uploads of students or faculty with a row-by-row preview (format, unknown codes, duplicates, scope), then background creation with a per-row report and optional invitations.
+- **Administration portal:** overview, the structure, calendar and people pages above, imports, roles and permissions (permission editing for super admins), audit log with filters, and account security with a profile photo.
+- **Faculty and student portals:** overview, profile (edit permitted fields, photo) and account security. Teaching and registration features arrive in later phases.
 - **Platform:** health checks, the public university profile, Swagger docs at `/api/docs`, a BullMQ worker (email and maintenance queues), file storage drivers, and authenticated Socket.IO.
 
 ## Documentation
@@ -144,7 +146,7 @@ This builds the `api`, `worker` and `web` images, runs `prisma migrate deploy` a
 
 ## Development credentials
 
-`npm run db:seed` creates the university structure (9 faculties, 32 departments, 16 degrees, 32 programs, 33 specializations), the 2025–2027 academic calendar, example grading scales, and one account per role. All use the password in `SEED_DEV_PASSWORD` (`apps/api/.env`; the example value is `Ucrams-Dev-Pass-2026`). **Development only:** the seed refuses to run with `NODE_ENV=production`.
+`npm run db:seed` creates the university structure (9 faculties, 32 departments, 16 degrees, 32 programs, 33 specializations), the 2025–2027 academic calendar, example grading scales, 129 faculty members (with heads and deans), 1,669 students (some with holds), and one account per role. The dev faculty and student accounts are linked to records `FAC09001` and `25CS9001`. All use the password in `SEED_DEV_PASSWORD` (`apps/api/.env`; the example value is `Ucrams-Dev-Pass-2026`). **Development only:** the seed refuses to run with `NODE_ENV=production`.
 
 | Role                                             | Email                     | Lands on             |
 | ------------------------------------------------ | ------------------------- | -------------------- |

@@ -17,6 +17,7 @@ export function makeMe(
       lastName: 'Tester',
       status: 'ACTIVE',
       lastLoginAt: null,
+      avatarUrl: null,
     },
     roles: [
       {
@@ -29,6 +30,9 @@ export function makeMe(
       },
     ],
     permissions: options.permissions ?? [],
+    grants: Object.fromEntries(
+      (options.permissions ?? []).map((p) => [p, [{ scope: 'GLOBAL' as const }]]),
+    ),
     portals: options.portals ?? [],
     sessionId: '0196f000-0000-7000-8000-0000000000cc',
   };

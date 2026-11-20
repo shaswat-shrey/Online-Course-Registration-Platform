@@ -1,7 +1,7 @@
 # Development Roadmap
 
-**Current phase:** Phase 3 — University structure (**complete**, 2026-11-20)
-**Next phase:** Phase 4 — Student and faculty management
+**Current phase:** Phase 4 — Student and faculty management (**complete**, 2026-11-20)
+**Next phase:** Phase 5 — Course management
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -88,12 +88,23 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - Notifying students when an active session's dates move (BR-020) arrives with notifications (Phase 9); the change is audited distinctly now (`session.active_dates_changed`).
 
 ## Phase 4 — Student and faculty management
-- [ ] Models: Student, StudentContact, StudentProgramHistory, RegistrationHold, FacultyMember, FacultySecondaryDepartment, AdminProfile
-- [ ] APIs + admin UI for students/faculty/admins, status management, holds, program change
-- [ ] Bulk import (CSV/XLSX) via `imports` queue with preview and per-row report
-- [ ] Profiles (self-edit permitted fields), avatar upload (file service)
-- [ ] Seed: faculty, students
-- [ ] Tests
+- [x] Models: Student, StudentContact, StudentProgramHistory, RegistrationHold, FacultyMember, FacultySecondaryDepartment, AdminProfile, IdSequence, StoredFile, ImportJob, ImportJobRow; department head / school dean links; avatar on users; trigger keeping a student's specialization inside their program; CHECKs on year of study, graduation year, load credits and file size; partial index on active holds
+- [x] APIs: students (scoped list/filters, detail with sensitive fields gated by `student:read_sensitive`, create with invitation, update, program change with history, status changes that suspend/deactivate the account, holds place/release), faculty (admin list, public directory, detail, create, update with head/dean guards), administrators (list/detail/create with escalation guard/update), account status (suspend/reactivate/deactivate, last super admin protected), resend invitation, self-service `/students/me` and `/faculty/me`
+- [x] Generated identifiers: student numbers `YY + department code + 4 digits`, employee numbers `FAC00001`, from a concurrency-safe sequence table
+- [x] Bulk import (CSV/XLSX, 5 MB / 5,000 rows) with header normalisation, per-row validation (format, codes, duplicates in file and database, admin scope), preview, commit through the `imports` queue (one transaction per row), optional invitations, per-row report, template download, cancel
+- [x] File service: upload intents, signed local uploads, magic-byte type check (mismatches rejected and deleted), hourly purge of abandoned uploads; avatars for every user
+- [x] User-level admin endpoints now scoped by the target's department (students and faculty), replacing the university-wide requirement
+- [x] Web: students list (URL-synced filters) and detail (overview, contact, holds, program history, account & access), faculty list/detail, administrators list/detail, account card (suspend/reactivate/deactivate, resend invite, unlock, sign out everywhere), roles card (assign/revoke within scope), imports (upload → preview with problem rows → commit → live status), student and faculty profile pages (self-edit permitted fields), avatar upload, head/dean pickers and faculty/student counts on structure pages, "People" navigation
+- [x] TD-010 resolved: `/auth/me` returns grant scopes per permission; create actions are hidden when no scope permits them
+- [x] Seed (idempotent, deterministic): 129 faculty (32 heads, 9 deans), 1,669 students, ~20 holds; dev faculty/student accounts linked to records (`FAC09001`, `25CS9001`)
+- [x] Tests: API +52 (233), shared +5 (27), web +5 (44), E2E +6 (34 runs: bulk import with an invalid row, department-admin scope, student profile edit)
+
+**Verified manually (browser):** students list/detail with seeded data, CSV import preview → commit → worker-created account with the page polling to completion, department head picker (only active members of the department offered), faculty and administrator lists.
+
+**Deferred, by design:**
+- Deactivating a faculty member with section assignments is checked once sections exist (Phase 5).
+- Import rows report format errors first; code lookups (program, department) run only once a row's format is valid, so a second upload can surface new problems.
+- Student-number and employee-number formats are fixed; making them configurable is a settings item (Phase 12).
 
 ## Phase 5 — Course management
 - [ ] Models: Course (+ outcomes, assessment components, FTS), prerequisites, corequisites, mappings, restrictions, Classroom, CourseSection, SectionMeeting, SectionInstructor
@@ -193,7 +204,8 @@ _None known._
 | TD-006 | If Redis is down while a session is revoked, the revocation is only in the DB; the session's access token stays valid until it expires (≤ 15 min) | Accept (documented), or add a short DB check fallback when Redis was recently unavailable (Phase 12 review) |
 | TD-007 | `DataTable` is a simple server-driven table; column visibility, sorting UI and bulk actions (TanStack Table) arrive with the first large admin tables | Phase 3/4 |
 | TD-008 | `seed --reset-roles` restores system role permissions without bumping holders' `permissionsVersion` (dev-only command) | Bump versions if the command is ever used outside development |
-| TD-010 | The "New department" button is shown to anyone holding `department:manage`, including department-scoped admins who can't create departments (the API returns 403 and the dialog shows it) | Expose assignment scopes per permission in `/auth/me` and hide create actions that no scope permits (Phase 4) |
+| TD-010 | ~~"New department" shown to department-scoped admins~~ | **Resolved in Phase 4** (`grants` in `/auth/me`, `useCanAt`) |
+| TD-012 | `PUBLIC_API_URL` is `http://localhost:5173` in development so signed upload/download links go through the Vite proxy (same origin, needed by Helmet's CORP) | Production serves API and web behind one origin; revisit if they are split |
 | TD-011 | Structure lists use offset pagination and `ILIKE` search backed by trigram indexes; adequate for hundreds of rows | Revisit with the course catalog (Phase 5), which needs full-text search |
 | TD-009 | The current shadcn CLI generates components that import `cn` from shadcn's own `cn` npm package. The project standardises on the local `@/lib/utils` helper (same clsx + tailwind-merge behaviour), so generated imports are rewritten and the package is not a dependency | Rewrite the import whenever adding shadcn components (or switch wholesale to the `cn` package) |
 
@@ -239,7 +251,21 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | Seed never overwrites existing rows | Edits made through the UI survive `db:seed` |
 | Requirement-group PUT/DELETE declare `authenticated` access and check `program:manage` or `specialization:manage` in the service | The needed permission depends on the group's owner |
 
+## Phase 4 implementation decisions
+| Decision | Reason |
+|---|---|
+| University Admin now holds `material:manage` and `attendance:manage` (all Department Admin permissions) | The escalation guard only lets admins assign roles whose permissions they hold; University Admins must be able to provision department admins |
+| Student/faculty records are separate tables linked 1:1 to `users` | Accounts (auth) and academic records have different lifecycles and visibility rules |
+| Suspending a student suspends the account and revokes sessions; dismissal deactivates it; other statuses restore it | Academic status and sign-in ability must not drift apart |
+| Contact details and hold reasons only for the student themself or `student:read_sensitive` | Least privilege for personal data (SECURITY.md §9) |
+| Import commit runs in the worker, one transaction per row; invitations sent after the run | A bad row cannot roll back thousands of good ones; emails only for accounts that exist |
+| BullMQ job ids use `-` (`import-{id}`) | BullMQ rejects custom ids containing `:` |
+| Head of department must be an active primary or secondary member; dean must be active in one of the school's departments; a head/dean cannot be moved or deactivated until replaced | Leadership links stay valid without cascading surprises |
+| Uploaded files are type-checked by content (magic bytes), not by the declared MIME type | Clients can lie about MIME types |
+| E2E sign-in clears auth rate-limit counters before each login | The suite signs in more often from one IP than the per-IP limit allows |
+
 ## Changelog
+- 2026-11-20 — Phase 4 complete: students, faculty, administrators, holds, bulk import, avatars and profiles (API, admin UI, portals, seed), 304 unit/integration + 34 E2E runs.
 - 2026-11-20 — Phase 3 complete: university structure and academic calendar (API, admin UI, seed), 242 unit/integration + 28 E2E runs.
 - 2026-11-20 — Phase 2 complete: authentication, sessions, RBAC with relationship scopes, audit log, admin/faculty/student portal shells, 155 unit/integration + 22 E2E tests.
 - 2026-11-20 — Phase 1 complete: monorepo, API foundation, worker, storage, mail, sockets, OpenAPI, web shell, tests (52 + 6 E2E), Docker/CI files.

@@ -18,6 +18,7 @@ export const meSchema = z
       lastName: z.string(),
       status: z.string(),
       lastLoginAt: z.string().nullable(),
+      avatarUrl: z.string().nullable(),
     }),
     roles: z.array(roleAssignment),
     permissions: z.array(z.string()),

@@ -129,9 +129,10 @@ The table lists the main endpoints per group. Standard CRUD = `GET /x` (list), `
 | **Auth** (implemented, Phase 2, except MFA and verify-email) | `POST /auth/login`, `POST /auth/mfa/verify`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`, `GET /auth/me`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `POST /auth/verify-email`, `POST /auth/accept-invite`, `POST /auth/change-password`, `GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `GET /auth/login-history` |
 | **Users** (implemented in Phase 2: `GET/POST /users/{id}/roles`, `DELETE /users/{id}/roles/{assignmentId}`, `GET/DELETE /users/{id}/sessions`, `GET /users/{id}/login-history`, `POST /users/{id}/unlock`) | CRUD `/users`, `POST /users/{id}/suspend|reactivate|deactivate|unlock`, `GET/POST/DELETE /users/{id}/roles`, `GET /users/{id}/sessions`, `DELETE /users/{id}/sessions`, `POST /users/{id}/resend-invite` |
 | **RBAC** (implemented, Phase 2) | `GET /roles`, `POST /roles`, `PATCH /roles/{id}`, `DELETE /roles/{id}`, `PUT /roles/{id}/permissions`, `GET /permissions` |
-| **Students** | CRUD `/students`, `GET /students/me`, `PATCH /students/me`, `POST /students/{id}/change-program`, `GET /students/{id}/registrations`, `GET /students/{id}/progress`, `GET /students/{id}/records`, `GET/POST /students/{id}/holds`, `POST /holds/{id}/release`, `POST /students/imports` (multipart CSV/XLSX → ImportJob), `GET /imports/{id}` |
-| **Faculty** | CRUD `/faculty`, `GET /faculty/me`, `PATCH /faculty/me`, `GET /faculty/{id}/schedule`, `GET /faculty/{id}/workload`, `POST /faculty/imports` |
-| **Administrators** | CRUD `/administrators` |
+| **Students** | ✅ `GET/POST /students`, `GET/PATCH /students/{id}`, `GET/PATCH /students/me`, `POST /students/{id}/change-program`, `POST /students/{id}/status`, `POST /students/{id}/holds`, `POST /students/{id}/holds/{holdId}/release`. Later: `GET /students/{id}/registrations`, `/progress`, `/records` |
+| **Faculty** | ✅ `GET/POST /faculty`, `GET/PATCH /faculty/{id}`, `GET/PATCH /faculty/me`, `GET /faculty/directory` (public fields, any signed-in user). Later: `GET /faculty/{id}/schedule`, `/workload` |
+| **Administrators** | ✅ `GET/POST /administrators`, `GET/PATCH /administrators/{id}`; account actions `POST /users/{id}/status` (suspend/reactivate/deactivate), `POST /users/{id}/resend-invite` |
+| **Imports** | ✅ `GET /imports/templates/{students\|faculty}` (CSV), `POST /imports/{kind}/preview` (multipart CSV/XLSX → preview job), `GET /imports`, `GET /imports/{id}`, `GET /imports/{id}/rows?status=`, `POST /imports/{id}/commit` (`{ sendInvites }`, queued), `POST /imports/{id}/cancel` |
 | **University** (implemented, Phase 3) | `GET /university/public`, `GET/PATCH /university`, `GET/POST /campuses`, `PATCH/DELETE /campuses/{id}` |
 | **Schools** (implemented, Phase 3) | `GET/POST /schools` (search `q`, `status`, sort, pagination), `GET/PATCH/DELETE /schools/{id}` (detail includes counts) |
 | **Departments** (implemented, Phase 3) | `GET/POST /departments` (`q`, `status`, `schoolId`), `GET/PATCH/DELETE /departments/{id}`; responses carry `canManage` |
@@ -157,7 +158,7 @@ The table lists the main endpoints per group. Standard CRUD = `GET /x` (list), `
 | **Notifications** | `GET /notifications?cursor=&unread=`, `GET /notifications/unread-count`, `POST /notifications/read` (ids or all), `GET/PUT /notifications/preferences` |
 | **Feedback** | CRUD `/feedback` (scoped), `POST /feedback/{id}/responses`, `POST /feedback/{id}/assign`, `POST /feedback/{id}/status` |
 | **Support tickets** | CRUD `/tickets`, `POST /tickets/{id}/responses`, `POST /tickets/{id}/assign`, `POST /tickets/{id}/status`, `GET /tickets/{id}/events` |
-| **Files / documents** | `POST /files/upload-intents`, `POST /files/{id}/complete`, `GET /files/{id}/download`, `DELETE /files/{id}`, CRUD `/course-sections/{id}/materials`, CRUD `/documents` |
+| **Files / documents** | ✅ `POST /files/upload-intents`, `POST /files/{id}/complete`, `PUT/DELETE /me/avatar`; later: `GET /files/{id}/download`, `DELETE /files/{id}`, CRUD `/course-sections/{id}/materials`, CRUD `/documents` |
 | **Search** | `GET /search?q=&types=course,department,program,specialization,faculty,student` |
 | **Dashboards** | `GET /dashboards/admin?filters…`, `GET /dashboards/faculty`, `GET /dashboards/student` |
 | **Reports** | `GET /reports` (catalogue), `GET /reports/{reportKey}?filters…`, `POST /reports/{reportKey}/export {format}` → ExportJob, `GET /exports/{id}` |

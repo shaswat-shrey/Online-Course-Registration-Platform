@@ -61,6 +61,7 @@ export interface MeDto {
     lastName: string;
     status: string;
     lastLoginAt: string | null;
+    avatarUrl: string | null;
   };
   roles: RoleAssignmentDto[];
   /** Union of permissions across all assignments (scope details stay server-side). */

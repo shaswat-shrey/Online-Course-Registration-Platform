@@ -26,6 +26,7 @@ import {
   passwordResetEmail,
 } from '../../infrastructure/email/templates.js';
 import { recordAudit } from '../audit/audit.service.js';
+import { avatarUrl } from '../files/files.service.js';
 import { getAuthState, invalidateAuthState, permissionList } from '../authz/grants.service.js';
 import { describeUserAgent } from './device.js';
 import {
@@ -222,6 +223,7 @@ export async function getMe(userId: string, sessionId: string): Promise<MeDto> {
       lastName: true,
       status: true,
       lastLoginAt: true,
+      avatarFileId: true,
       roles: {
         orderBy: { createdAt: 'asc' },
         select: {
@@ -244,6 +246,7 @@ export async function getMe(userId: string, sessionId: string): Promise<MeDto> {
       lastName: user.lastName,
       status: user.status,
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+      avatarUrl: await avatarUrl(user.avatarFileId),
     },
     roles: user.roles.map((r) => ({
       id: r.id,

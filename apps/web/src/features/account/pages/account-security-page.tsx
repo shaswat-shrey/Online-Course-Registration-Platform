@@ -20,6 +20,7 @@ import { DataTable } from '@/components/tables/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { authApi } from '@/features/auth/api/auth-api';
+import { AvatarUploader } from '@/features/people/components/avatar-uploader';
 import { isApiError } from '@/services/api-error';
 import { useAuthStore } from '@/store/auth-store';
 import { formatDateTime, formatRelative } from '@/utils/format';
@@ -253,9 +254,18 @@ export function AccountSecurityPage() {
     <>
       <PageHeader
         title="Account security"
-        description="Manage your password and the devices signed in to your account."
+        description="Manage your photo, password and the devices signed in to your account."
       />
       <div className="grid gap-6 [&>*]:min-w-0">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Profile photo</CardTitle>
+            <CardDescription>Shown next to your name across the university.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AvatarUploader />
+          </CardContent>
+        </Card>
         <ChangePasswordCard />
         <SessionsCard />
         <LoginHistoryCard />
