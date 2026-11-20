@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
+import { useAuthStore } from '@/store/auth-store';
 import { server } from './msw-server';
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
@@ -8,6 +9,10 @@ afterEach(() => {
   server.resetHandlers();
   cleanup();
   localStorage.clear();
+  useAuthStore.setState({ status: 'anonymous', accessToken: null, me: null, endReason: null });
+  document.cookie.split('; ').forEach((c) => {
+    document.cookie = `${c.split('=')[0]}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  });
 });
 afterAll(() => server.close());
 
@@ -24,4 +29,13 @@ if (!window.matchMedia) {
       removeListener: () => {},
       dispatchEvent: () => false,
     }) as MediaQueryList;
+}
+
+// jsdom lacks ResizeObserver (used by Radix primitives).
+if (!('ResizeObserver' in globalThis)) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
 }

@@ -191,9 +191,9 @@ sequenceDiagram
 
 - **Model:** `Permission` (key), `Role` (system or custom), `RolePermission`, `UserRole(userId, roleId, scopeType, scopeId)`.
 - **Resolution:** on login/refresh the API computes the effective grants: `{ permission → [GLOBAL] | [SCHOOL ids] | [DEPARTMENT ids] }`. Cached in Redis per user keyed by `permissionsVersion`; invalidated when roles change.
-- **Endpoint guard:** `requirePermission('course:update')` verifies the user has the permission in *some* scope (fast fail).
+- **Endpoint guard:** routes declare `access` in `defineRoute` (`public`, `authenticated`, or `{ permission }`); the helper adds `authenticate` and `requirePermission`, which checks the permission is held at *some* scope (fast fail). Routes without a declaration cannot be registered, and a test sends anonymous requests to every protected route.
 - **Resource scope check:** in the service, `authz.assertInScope(actor, 'course:update', { departmentId })` resolves the resource's department → school chain and checks that a grant covers it. List endpoints call `authz.scopeFilter(actor, perm)`, which returns a Prisma `where` fragment (e.g. `{ departmentId: { in: [...] } }`).
-- **Relationship-based rules** (faculty teaching a section, student owning a record) live in policy functions per module: `sectionPolicy.canViewRoster(actor, sectionId)`.
+- **Relationship-based rules** (faculty teaching a section, student owning a record) live in policy functions per module: `sectionPolicy.canViewRoster(actor, sectionId)`. Grants from relationship roles have scope `OWN` (ADR-014): `covers()` is always false for them, so they can only be used by these policies, never by organisational scope checks.
 - Faculty and Student roles have permissions such as `roster:read` that are checked *together with* the relationship policy.
 
 Full matrix: [USER_ROLES_AND_PERMISSIONS.md](USER_ROLES_AND_PERMISSIONS.md).
@@ -302,3 +302,5 @@ Defence in depth: TLS at the edge → Helmet headers + strict CSP for the SPA �
 | ADR-011 | Zod as single schema source → OpenAPI via `@asteasolutions/zod-to-openapi` | No drift between validation and docs |
 | ADR-012 | PostgreSQL full-text + `pg_trgm` for search | Adequate at target scale; no extra search cluster |
 | ADR-013 | Native Postgres/Redis supported for development when Docker is unavailable | The current dev machine has PostgreSQL 17 but no Docker/Redis |
+| ADR-014 | Roles have a `scopeMode`. ORGANIZATIONAL roles grant at their assignment scope; RELATIONSHIP roles (faculty, student) produce `OWN` grants that never cover any school/department and are usable only through relationship policies (teaches this section, owns this record) | The same permission key (e.g. `material:manage`) means "any section in my department" for an admin but "my own sections" for a lecturer; without this a GLOBAL faculty assignment would act university-wide |
+| ADR-015 | Partial unique indexes (not `NULLS NOT DISTINCT`) for nullable-scope uniqueness | Prisma drift detection ignores partial indexes |

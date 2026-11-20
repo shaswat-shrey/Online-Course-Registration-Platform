@@ -1,6 +1,6 @@
 # Database Design
 
-> Status: **design (Phase 0)**. The Prisma schema will be created in Phase 1/2 from this document. Changes during implementation must be reflected here.
+> Status: identity, access and audit tables **implemented (Phase 2)**; everything else is design. Changes during implementation are reflected here.
 
 ## 1. Conventions
 
@@ -312,15 +312,15 @@ erDiagram
 | Table | Purpose | Key constraints / indexes |
 |---|---|---|
 | `users` | Login identity for all roles | `email` unique (citext); index `status` |
-| `roles` | System and custom roles | `key` unique; `is_system` |
+| `roles` | System and custom roles | `key` unique; `is_system`; `scope_mode` (`ORGANIZATIONAL`/`RELATIONSHIP`, ADR-014) |
 | `permissions` | Permission catalogue (`resource:action`) | `key` unique |
 | `role_permissions` [C] | Role → permission | PK (`role_id`, `permission_id`) |
-| `user_roles` | Scoped role assignment | unique (`user_id`, `role_id`, `scope_type`, `scope_id`) with `NULLS NOT DISTINCT`; CHECK `scope_type='GLOBAL' = (scope_id IS NULL)` |
-| `sessions` | Device sessions | index (`user_id`, `revoked_at`) |
+| `user_roles` | Scoped role assignment | partial unique (`user_id`, `role_id`) WHERE `scope_id IS NULL` and partial unique (`user_id`, `role_id`, `scope_type`, `scope_id`) WHERE `scope_id IS NOT NULL` (ADR-015); CHECK `scope_type='GLOBAL' = (scope_id IS NULL)`; `scope_id` is polymorphic (school or department), validated in the service |
+| `sessions` | Device sessions (device label, IP, remember-me, sliding expiry) | index (`user_id`, `revoked_at`); partial index (`user_id`) WHERE `revoked_at IS NULL` |
 | `refresh_tokens` [C] | Hashed rotating tokens per session | `token_hash` unique; index `session_id` |
 | `auth_tokens` | Hashed single-use tokens: `EMAIL_VERIFY`, `PASSWORD_RESET`, `MFA_CHALLENGE` | `token_hash` unique; index (`user_id`, `type`) |
-| `login_attempts` | Login history | index (`user_id`, `created_at desc`), (`ip`, `created_at`) |
-| `mfa_recovery_codes` [C] | Hashed recovery codes | — |
+| `login_attempts` | Login history (outcome, IP, user agent; attempts for unknown emails are stored without the email) | index (`user_id`, `created_at desc`), (`ip`, `created_at`) |
+| `mfa_recovery_codes` [C] | Hashed recovery codes | — (planned with MFA; not yet created) |
 
 ### 3.2 Profiles
 | Table | Purpose | Key constraints |

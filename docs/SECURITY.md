@@ -103,12 +103,13 @@ See SRS FR-FILE-*. Additionally: `Content-Disposition: attachment` for non-image
 | Env validation, .env.example | 1 | Done (production refuses example secrets and enabled docs) |
 | Helmet, CORS, request IDs, error sanitization | 1 | Done (tested) |
 | Pino redaction | 1 | Done |
-| Argon2id, login, lockout, login history | 2 | Planned |
-| Refresh rotation + reuse detection | 2 | Planned |
-| CSRF double-submit for cookie endpoints | 2 | Planned |
-| Rate limiting (Redis) | 1–2 | Global limiter done (Phase 1); auth-specific fail-closed limiters in Phase 2 |
-| RBAC guards + scope policies + default-deny test | 2 | Planned |
-| Audit log | 2 | Planned |
+| Argon2id, login, lockout, login history | 2 | Done (tested) |
+| Refresh rotation + reuse detection | 2 | Done (tested, incl. concurrent refresh grace) |
+| CSRF double-submit for cookie endpoints | 2 | Done (+ Origin check) |
+| Rate limiting (Redis) | 1–2 | Done: global (fail-open with insurance) and auth (fail-closed, hashed identifiers) |
+| RBAC guards + scope policies + default-deny test | 2 | Done (incl. OWN-scoped relationship grants, escalation guard) |
+| Audit log | 2 | Done (transactional writes, filtered read API) |
+| MFA (TOTP) | — | Planned (Should); model field present |
 | File validation + signed URLs | 7 | Planned |
 | Rich-text sanitization | 9 | Planned |
 | CSV-injection escaping | 11 | Planned |

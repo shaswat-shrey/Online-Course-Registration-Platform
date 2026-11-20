@@ -1,7 +1,7 @@
 # Development Roadmap
 
-**Current phase:** Phase 1 — Project foundation (**complete**, 2026-11-20)
-**Next phase:** Phase 2 — Authentication and access control
+**Current phase:** Phase 2 — Authentication and access control (**complete**, 2026-11-20)
+**Next phase:** Phase 3 — University structure
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -43,19 +43,31 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 **Not verified (no Docker on dev machine):** `docker compose` infra and `app` profile, image builds (CI job added; first run pending a push).
 
 ## Phase 2 — Authentication and access control
-- [ ] Models: User, Role, Permission, RolePermission, UserRole, Session, RefreshToken, AuthToken, LoginAttempt, AuditLog
-- [ ] Permission constants in shared; RBAC seed (system roles + matrix)
-- [ ] Argon2id hashing; login; lockout; login history; enumeration-safe responses
-- [ ] Access JWT (jose) + refresh rotation + reuse detection + CSRF double-submit
-- [ ] `/auth/me`, logout, logout-all, sessions list/revoke, change password
-- [ ] Invite/verify email, forgot/reset password (email queue)
-- [ ] Redis rate limiters for auth endpoints
-- [ ] `authenticate` middleware with revoked-session check; `requirePermission`; scope resolver; default-deny route test
-- [ ] Audit log service + middleware helpers
-- [ ] Web: login, forgot/reset, accept invite, auth store, refresh interceptor (single-flight), route guards, session management page
-- [ ] Dev accounts seed (one per role)
-- [ ] Tests: TESTING.md §3 Authentication + Authorization
-- [ ] Exit: security tests pass; manual login per role works
+- [x] Models: User, Role (+ `scopeMode`), Permission, RolePermission, UserRole, Session, RefreshToken, AuthToken, LoginAttempt, AuditLog; partial unique indexes and checks
+- [x] Permission constants and system role matrix in `@ucrams/shared`; idempotent RBAC catalogue sync (seed + `bootstrap:admin`)
+- [x] Argon2id hashing (rehash on parameter change); password policy (length, common list, not email-derived); login; exponential lockout; login history; enumeration-safe responses with timing equalization
+- [x] Access JWT (jose, HS256, `kid`-free rotation via previous secret) + refresh rotation + reuse detection (10 s grace) + CSRF double-submit + Origin check
+- [x] `/auth/me`, logout, logout-all, sessions list/revoke, login history, change password
+- [x] Invitation acceptance and forgot/reset password via the email queue (single-use hashed tokens)
+- [x] Fail-closed Redis rate limiters on auth endpoints (hashed identifiers in keys)
+- [x] `authenticate` with revoked-session check (Redis with DB fallback) and permissions-version check; `requirePermission`; scope helpers (`covers`, `assertInScope`, `scopeFilter`); default-deny test over every route
+- [x] Relationship-scoped roles: faculty/student grants are `OWN` and never satisfy organisational checks (ADR-014)
+- [x] RBAC API: roles, permissions, custom roles, permission editing, scoped role assignment with privilege-escalation guard, last-super-admin protection
+- [x] Admin account security API: user sessions, login history, revoke all, unlock
+- [x] Audit log service (transactional) + filtered audit API
+- [x] Socket.IO handshake authentication (user rooms; worker emitter verified)
+- [x] Web: login, forgot/reset password, accept invitation, no-access page; in-memory auth store; session restore on reload; single-flight refresh interceptor; guards (auth, portal, permission, public-only) with safe `next` redirects; portal layout (sidebar, mobile sheet, breadcrumbs, portal switcher, user menu); overview; account security; roles list/editor; audit log
+- [x] Dev accounts seed (one per role except department admin, see below)
+- [x] Tests: API 109 (auth flows, rotation/reuse, lockout, CSRF, reset/invite, RBAC matrix, escalation, OWN scope, default deny, audit, sockets), shared 15, web 31, E2E 22 (desktop + mobile)
+- [x] Exit: security tests pass; manual sign-in per role verified in the browser
+
+**Verified manually (browser):** login with deep link, session restore on reload, role permission edit → audit entry, sign-out, student blocked from admin pages, mobile layout (375 px) without horizontal overflow, mobile navigation sheet.
+
+**Deferred, by design:**
+- Scoped (school/department) role assignment returns "Unknown school/department" until those tables exist (Phase 3); the department-admin dev account is created then.
+- User-level admin endpoints (sessions, unlock, role listing) require university-wide grants until users have departments (Phase 4).
+- MFA (TOTP) remains a Should item; the model has `mfaEnabled`.
+- Socket.IO client in the web app is added with real-time features (Phase 9).
 
 ## Phase 3 — University structure
 - [ ] Models + APIs: University, Campus, School, Department, Degree, Program, Specialization, RequirementGroup, RequirementCourse (course FK added in Phase 5), AcademicYear, AcademicSession, SessionPolicy, RegistrationPeriod, PriorityWindow, GradingScale
@@ -167,6 +179,10 @@ _None known._
 | TD-003 | S3 presigned URLs use `S3_ENDPOINT`; inside Compose that is `http://minio:9000`, which browsers cannot reach | Add `S3_PUBLIC_ENDPOINT` for presigning when uploads land (Phase 4/7) |
 | TD-004 | Docker Compose stack and images not yet exercised locally | First CI run builds images; full stack check in Phase 13 or when Docker is available |
 | TD-005 | The `local` storage driver is allowed with `NODE_ENV=production` | Decide in Phase 13: refuse it, or support single-server deployments explicitly |
+| TD-006 | If Redis is down while a session is revoked, the revocation is only in the DB; the session's access token stays valid until it expires (≤ 15 min) | Accept (documented), or add a short DB check fallback when Redis was recently unavailable (Phase 12 review) |
+| TD-007 | `DataTable` is a simple server-driven table; column visibility, sorting UI and bulk actions (TanStack Table) arrive with the first large admin tables | Phase 3/4 |
+| TD-008 | `seed --reset-roles` restores system role permissions without bumping holders' `permissionsVersion` (dev-only command) | Bump versions if the command is ever used outside development |
+| TD-009 | The current shadcn CLI generates components that import `cn` from shadcn's own `cn` npm package. The project standardises on the local `@/lib/utils` helper (same clsx + tailwind-merge behaviour), so generated imports are rewritten and the package is not a dependency | Rewrite the import whenever adding shadcn components (or switch wholesale to the `cn` package) |
 
 ## Architectural decisions
 See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summary) (ADR-001 … ADR-013).
@@ -187,6 +203,20 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | Vite dev proxy for `/api` and `/socket.io` | Same-origin in development, matching Nginx in production; no CORS needed for the SPA |
 | Root route renders a live system-status page | Phase 1 has no authentication; a real data-backed page instead of placeholder portals |
 
+## Phase 2 implementation decisions
+| Decision | Reason |
+|---|---|
+| Faculty and Student are RELATIONSHIP roles whose grants have scope `OWN` (ADR-014) | A GLOBAL-scoped faculty assignment must never let a lecturer manage every section; relationship permissions are only usable through module policies |
+| Assigning a RELATIONSHIP role needs only `user:assign_roles` at the target scope | They confer no organisational power, so the permission-subset guard (which would stop admins from assigning teaching roles) does not apply |
+| Super Administrator role permissions are immutable via the API | Prevents locking everyone out of RBAC administration |
+| Login success is recorded in `login_attempts`, not the audit log; lockouts, resets, revocations and RBAC changes are audited | Keeps the audit log focused on security events and administrative changes |
+| Refresh endpoint returns `SESSION_REVOKED` for any unusable token and clears cookies | One clear client behaviour: sign in again |
+| Concurrent refreshes within 10 s share one rotation; a 401 arriving after a refresh retries with the newer token | Multiple tabs and parallel requests must not trigger reuse detection or extra rotations |
+| The API waits up to 10 s for Redis before listening | The fail-fast cache client otherwise produced 503s from fail-closed auth limiters right after boot |
+| Partial unique indexes on `user_roles` instead of `NULLS NOT DISTINCT` | Prisma ignores partial indexes in drift detection; it tried to drop the other form on every `migrate dev` |
+| Session end reason (`signed-out` / `expired`) in the client auth store | Explicit sign-out goes to a clean `/login`; expiry keeps `next` and shows "Your session ended" |
+
 ## Changelog
+- 2026-11-20 — Phase 2 complete: authentication, sessions, RBAC with relationship scopes, audit log, admin/faculty/student portal shells, 155 unit/integration + 22 E2E tests.
 - 2026-11-20 — Phase 1 complete: monorepo, API foundation, worker, storage, mail, sockets, OpenAPI, web shell, tests (52 + 6 E2E), Docker/CI files.
 - 2026-11-20 — Phase 0 deliverables created: SRS, Architecture, Database (ERD), API, Security, Testing, Roles & Permissions, Roadmap, README.

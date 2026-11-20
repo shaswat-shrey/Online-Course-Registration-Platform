@@ -36,4 +36,11 @@ export const defaultHandlers = [
   ),
 ];
 
+export const envelope = <T>(data: T, message = 'OK') => ({ success: true, message, data });
+export const failure = (code: string, message: string, status: number, details?: unknown) =>
+  HttpResponse.json(
+    { success: false, message, error: { code, details, requestId: 'req-test' } },
+    { status },
+  );
+
 export const server = setupServer(...defaultHandlers);

@@ -49,6 +49,8 @@ export interface RoleAssignmentDto {
   roleName: string;
   scopeType: ScopeType;
   scopeId: string | null;
+  /** RELATIONSHIP roles apply only to the holder's own sections/records. */
+  scopeMode: 'ORGANIZATIONAL' | 'RELATIONSHIP';
 }
 
 export interface MeDto {

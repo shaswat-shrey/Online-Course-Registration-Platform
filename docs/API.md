@@ -126,9 +126,9 @@ The table lists the main endpoints per group. Standard CRUD = `GET /x` (list), `
 | Group | Endpoints |
 |---|---|
 | **Health** | `GET /health/live`, `GET /health/ready` (implemented, Phase 1) |
-| **Auth** | `POST /auth/login`, `POST /auth/mfa/verify`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`, `GET /auth/me`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `POST /auth/verify-email`, `POST /auth/accept-invite`, `POST /auth/change-password`, `GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `GET /auth/login-history` |
-| **Users** | CRUD `/users`, `POST /users/{id}/suspend|reactivate|deactivate|unlock`, `GET/POST/DELETE /users/{id}/roles`, `GET /users/{id}/sessions`, `DELETE /users/{id}/sessions`, `POST /users/{id}/resend-invite` |
-| **RBAC** | `GET /roles`, `POST /roles`, `PATCH /roles/{id}`, `DELETE /roles/{id}`, `PUT /roles/{id}/permissions`, `GET /permissions` |
+| **Auth** (implemented, Phase 2, except MFA and verify-email) | `POST /auth/login`, `POST /auth/mfa/verify`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`, `GET /auth/me`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `POST /auth/verify-email`, `POST /auth/accept-invite`, `POST /auth/change-password`, `GET /auth/sessions`, `DELETE /auth/sessions/{id}`, `GET /auth/login-history` |
+| **Users** (implemented in Phase 2: `GET/POST /users/{id}/roles`, `DELETE /users/{id}/roles/{assignmentId}`, `GET/DELETE /users/{id}/sessions`, `GET /users/{id}/login-history`, `POST /users/{id}/unlock`) | CRUD `/users`, `POST /users/{id}/suspend|reactivate|deactivate|unlock`, `GET/POST/DELETE /users/{id}/roles`, `GET /users/{id}/sessions`, `DELETE /users/{id}/sessions`, `POST /users/{id}/resend-invite` |
+| **RBAC** (implemented, Phase 2) | `GET /roles`, `POST /roles`, `PATCH /roles/{id}`, `DELETE /roles/{id}`, `PUT /roles/{id}/permissions`, `GET /permissions` |
 | **Students** | CRUD `/students`, `GET /students/me`, `PATCH /students/me`, `POST /students/{id}/change-program`, `GET /students/{id}/registrations`, `GET /students/{id}/progress`, `GET /students/{id}/records`, `GET/POST /students/{id}/holds`, `POST /holds/{id}/release`, `POST /students/imports` (multipart CSV/XLSX → ImportJob), `GET /imports/{id}` |
 | **Faculty** | CRUD `/faculty`, `GET /faculty/me`, `PATCH /faculty/me`, `GET /faculty/{id}/schedule`, `GET /faculty/{id}/workload`, `POST /faculty/imports` |
 | **Administrators** | CRUD `/administrators` |
@@ -161,7 +161,7 @@ The table lists the main endpoints per group. Standard CRUD = `GET /x` (list), `
 | **Dashboards** | `GET /dashboards/admin?filters…`, `GET /dashboards/faculty`, `GET /dashboards/student` |
 | **Reports** | `GET /reports` (catalogue), `GET /reports/{reportKey}?filters…`, `POST /reports/{reportKey}/export {format}` → ExportJob, `GET /exports/{id}` |
 | **Settings** | `GET /settings`, `PATCH /settings/{key}` |
-| **Audit logs** | `GET /audit-logs`, `GET /audit-logs/{id}`, `POST /audit-logs/export` |
+| **Audit logs** | `GET /audit-logs` (implemented, Phase 2; filters `action` prefix, `entityType`, `entityId`, `actorId`, `from`, `to`), `GET /audit-logs/{id}`, `POST /audit-logs/export` |
 | **Jobs** | `GET /jobs/failed`, `POST /jobs/{queue}/{id}/retry` |
 
 ## 8. Idempotency

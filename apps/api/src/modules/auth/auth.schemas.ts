@@ -6,6 +6,7 @@ const roleAssignment = z.object({
   roleName: z.string(),
   scopeType: z.enum(['GLOBAL', 'SCHOOL', 'DEPARTMENT']),
   scopeId: z.uuid().nullable(),
+  scopeMode: z.enum(['ORGANIZATIONAL', 'RELATIONSHIP']),
 });
 
 export const meSchema = z

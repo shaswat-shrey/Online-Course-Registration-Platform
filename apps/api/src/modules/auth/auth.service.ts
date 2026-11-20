@@ -228,7 +228,7 @@ export async function getMe(userId: string, sessionId: string): Promise<MeDto> {
           id: true,
           scopeType: true,
           scopeId: true,
-          role: { select: { key: true, name: true } },
+          role: { select: { key: true, name: true, scopeMode: true } },
         },
       },
     },
@@ -251,6 +251,7 @@ export async function getMe(userId: string, sessionId: string): Promise<MeDto> {
       roleName: r.role.name,
       scopeType: r.scopeType,
       scopeId: r.scopeId,
+      scopeMode: r.role.scopeMode,
     })),
     permissions,
     portals: portalsFor(

@@ -1,6 +1,6 @@
 # User Roles and Permissions
 
-> Status: **design (Phase 0)**. Implemented in Phase 2. The permission keys below become constants in `packages/shared/src/permissions.ts` and are seeded into the `permissions` table.
+> Status: **implemented (Phase 2)**. Permission keys live in `packages/shared/src/permissions.ts`, the role matrix in `packages/shared/src/roles.ts`; both are synced into the database by the seed and by `npm run bootstrap:admin`.
 
 ## 1. Model
 
@@ -11,6 +11,7 @@
   - `SCHOOL:<id>`: the school and every department in it.
   - `DEPARTMENT:<id>`: that department only.
 - **Effective grant** = union of all the user's assignments. A permission held at `SCHOOL:X` covers resources whose department belongs to school X.
+- **Scope mode (ADR-014).** Each role is ORGANIZATIONAL or RELATIONSHIP. Faculty Member and Student are RELATIONSHIP roles: they are assigned without a school/department, and their permissions become `OWN` grants. An `OWN` grant never covers any organisational target; it only works together with a relationship check (teaches this section, owns this record). This stops a lecturer's `material:manage` from meaning "every section in the university".
 - **Relationship policies** add a second check for faculty and students (teaches this section / owns this record). Holding `roster:read` alone is not enough; the faculty member must also teach the section.
 
 ### Scope resolution for resources
@@ -193,7 +194,9 @@ Legend: ✅ granted · 🔹 granted, limited to assigned scope (school/departmen
 Notes:
 - A permission marked 🔹 is still *granted* to the role; the scope comes from the role assignment. Assigning `ACADEMIC_ADMIN` at GLOBAL scope makes every 🔹 effectively ✅.
 - `UNIVERSITY_ADMIN` intentionally lacks `grade:change`, `record:manage`, `assessment:manage` and `material:manage` (separation of duties: academic records are owned by the registrar).
-- Privilege-escalation guard: a user can only assign roles whose permission set is a subset of their own effective permissions, at a scope they themselves cover.
+- Privilege-escalation guard: assigning or revoking any role requires `user:assign_roles` covering the target scope. For ORGANIZATIONAL roles, the assigner must also hold every one of the role's permissions at that scope. RELATIONSHIP roles confer no organisational power, so the subset check does not apply (otherwise a university admin, who deliberately lacks `grade:submit`, could not assign the Faculty role).
+- Role administration (`rbac:*`) and audit reading require a university-wide grant.
+- The Super Administrator role's permissions cannot be edited, and the last Super Administrator assignment cannot be removed.
 
 ## 5. Messaging permissions
 
@@ -226,15 +229,15 @@ Section conversations: members are instructors plus students with seat-holding r
 
 Users with several portals (e.g. faculty who is also department admin) get a portal switcher in the header.
 
-## 8. Development accounts (planned, Phase 2 seed)
+## 8. Development accounts (Phase 2 seed)
 
 | Role | Email | Scope |
 |---|---|---|
 | Super Admin | `superadmin@ucrams.local` | GLOBAL |
 | University Admin | `uniadmin@ucrams.local` | GLOBAL |
 | Academic Admin | `registrar@ucrams.local` | GLOBAL |
-| Department Admin | `cs.admin@ucrams.local` | DEPARTMENT: Computer Science |
+| Department Admin | `cs.admin@ucrams.local` | DEPARTMENT: Computer Science (created in Phase 3, when departments exist) |
 | Faculty | `faculty.cs@ucrams.local` | — |
 | Student | `student.cs@ucrams.local` | — |
 
-The development password is set from `SEED_DEV_PASSWORD` in `.env` (example value in `.env.example`) and documented in README. The seed refuses to run in production.
+Faculty and Student accounts are RELATIONSHIP-scoped (no school/department). The development password is set from `SEED_DEV_PASSWORD` in `apps/api/.env` (example value in `.env.example`) and documented in the README. The seed refuses to run in production.

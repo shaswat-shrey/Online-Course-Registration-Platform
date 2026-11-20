@@ -7,7 +7,7 @@ import { renderRoute } from '@/tests/render';
 
 describe('SystemStatusPage', () => {
   it('shows the university and every service check from the API', async () => {
-    renderRoute('/');
+    renderRoute('/status');
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Test University' }),
     ).toBeInTheDocument();
@@ -28,7 +28,7 @@ describe('SystemStatusPage', () => {
         ),
       ),
     );
-    renderRoute('/');
+    renderRoute('/status');
     expect(await screen.findByText('Unavailable')).toBeInTheDocument();
     expect(screen.getAllByText('Down').length).toBeGreaterThan(0);
   });
@@ -46,7 +46,7 @@ describe('SystemStatusPage', () => {
         });
       }),
     );
-    renderRoute('/');
+    renderRoute('/status');
     expect(await screen.findByRole('alert')).toHaveTextContent('Status unavailable');
     await userEvent.click(screen.getByRole('button', { name: /try again/i }));
     expect(await screen.findByText('Degraded')).toBeInTheDocument();

@@ -34,9 +34,11 @@
     "@playwright/test": "1.65",
     "@types/node": "^24.19.2",
     "concurrently": "^10.0.7",
+    "dotenv": "^18.0.10",
     "eslint": "^10.15.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.14.0",
+    "ioredis": "^6.0.0",
     "prettier": "^3.10.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.73.0"

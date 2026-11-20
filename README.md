@@ -2,14 +2,15 @@
 
 A full-stack platform for managing a university's academic structure, course catalog, course sections, faculty assignments, student registration (with waitlists and concurrency-safe seat allocation), communication, and reporting, through Administrator, Faculty and Student portals.
 
-> **Project status: Phase 1 (project foundation) complete.** The API, worker and web foundations run and are tested, but there is no authentication or academic functionality yet; that starts in Phase 2. Progress: [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md).
+> **Project status: Phase 2 (authentication and access control) complete.** Sign-in, sessions, roles/permissions and the audit log work end to end. Academic functionality (structure, courses, registration) starts in Phase 3. Progress: [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md).
 
 ## What works today
 
-- API (`/api/v1`) with health checks, the public university profile, standard response/error envelopes, request IDs, rate limiting, security headers, CORS allow-list and Swagger docs at `/api/docs`.
-- Background worker (BullMQ) processing the `email` and `maintenance` queues.
-- Web app: system status page backed by the live health endpoint, light/dark themes, 404/403 pages.
-- PostgreSQL schema managed by Prisma migrations, plus an idempotent seed.
+- **Authentication:** email/password sign-in (Argon2id), account lockout, login history, forgot/reset password, invitation acceptance, change password, per-device sessions with revoke and "sign out everywhere". Short-lived access tokens plus rotating HttpOnly refresh cookies with reuse detection and CSRF protection.
+- **Access control:** six system roles with 74 granular permissions, scoped assignments (university / faculty-school / department), relationship-scoped faculty and student roles, custom roles, a privilege-escalation guard, and server-side enforcement on every route (default deny).
+- **Administration portal:** overview, roles and permissions (permission editing for super admins), audit log with filters, and account security.
+- **Faculty and student portals:** overview and account security. Portal features arrive in later phases.
+- **Platform:** health checks, the public university profile, Swagger docs at `/api/docs`, a BullMQ worker (email and maintenance queues), file storage drivers, and authenticated Socket.IO.
 
 ## Documentation
 
@@ -141,7 +142,27 @@ This builds the `api`, `worker` and `web` images, runs `prisma migrate deploy` a
 
 ## Development credentials
 
-None yet. Per-role development accounts arrive with authentication in Phase 2 and will be listed here. Local database credentials (`ucrams` / `ucrams_dev_password`) are for development only.
+`npm run db:seed` creates one account per role. All use the password in `SEED_DEV_PASSWORD` (`apps/api/.env`; the example value is `Ucrams-Dev-Pass-2026`). **Development only:** the seed refuses to run with `NODE_ENV=production`.
+
+| Role                     | Email                     | Lands on             |
+| ------------------------ | ------------------------- | -------------------- |
+| Super Administrator      | `superadmin@ucrams.local` | `/admin/dashboard`   |
+| University Administrator | `uniadmin@ucrams.local`   | `/admin/dashboard`   |
+| Academic Administrator   | `registrar@ucrams.local`  | `/admin/dashboard`   |
+| Faculty Member           | `faculty.cs@ucrams.local` | `/faculty/dashboard` |
+| Student                  | `student.cs@ucrams.local` | `/student/dashboard` |
+
+The department administrator account (`cs.admin@ucrams.local`) is added with departments in Phase 3, because its role is scoped to a department. To restore system roles to their default permissions after experimenting: `npx tsx prisma/seed/index.ts --reset-roles` (run in `apps/api`).
+
+Without email delivery configured (`MAIL_TRANSPORT=log`), reset and invitation emails are rendered and logged by the **worker**, so the links appear in its output.
+
+### First administrator in production
+
+```bash
+BOOTSTRAP_ADMIN_EMAIL=admin@your-university.edu BOOTSTRAP_ADMIN_FIRST_NAME=Ada BOOTSTRAP_ADMIN_LAST_NAME=Admin npm run bootstrap:admin -w @ucrams/api
+```
+
+This syncs the permission catalogue and creates an invited Super Administrator. It prints a one-time activation link and also emails it. It does nothing if a Super Administrator already exists.
 
 ## Troubleshooting
 
