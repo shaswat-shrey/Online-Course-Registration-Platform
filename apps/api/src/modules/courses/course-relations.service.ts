@@ -8,11 +8,7 @@ import {
   type requirementCoursesSchema,
 } from '@ucrams/shared';
 import type { ActorContext } from '../../common/context/actor.js';
-import {
-  BusinessRuleError,
-  ConflictError,
-  NotFoundError,
-} from '../../common/exceptions/app-error.js';
+import { BusinessRuleError, NotFoundError } from '../../common/exceptions/app-error.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
 import { recordAudit } from '../audit/audit.service.js';
 import { groupOwnerScope } from '../programs/programs.service.js';
@@ -83,7 +79,7 @@ export async function setPrerequisites(
     });
     const byId = new Map(codes.map((c) => [c.id, c.code]));
     const chain = cycle.map((id) => byId.get(id) ?? id).join(' → ');
-    throw new ConflictError(
+    throw new BusinessRuleError(
       ErrorCode.PREREQUISITE_CYCLE,
       `This would create a prerequisite cycle: ${chain}`,
       {

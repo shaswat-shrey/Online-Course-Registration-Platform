@@ -99,7 +99,7 @@ describe('CourseDetailPage', () => {
         return failure(
           'PREREQUISITE_CYCLE',
           'This would create a prerequisite cycle: CS301 → CS490 → CS301',
-          409,
+          422,
           {
             cycle: ['CS301', 'CS490', 'CS301'],
           },

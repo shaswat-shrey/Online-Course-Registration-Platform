@@ -108,6 +108,10 @@ model User {
   programChanges StudentProgramHistory[]
   importJobs     ImportJob[]
 
+  notifications         Notification[]
+  registrationEvents    RegistrationEvent[]
+  registrationDecisions RegistrationRequest[] @relation("RequestDecider")
+
   @@index([status])
   @@map("users")
 }
@@ -549,6 +553,10 @@ model AcademicSession {
 
   sections CourseSection[]
 
+  registrations   CourseRegistration[]
+  academicRecords AcademicRecord[]
+  coursePlans     CoursePlan[]
+
   @@index([academicYearId])
   @@index([status])
   @@map("academic_sessions")
@@ -707,6 +715,10 @@ model Student {
   contact          StudentContact?
   holds            RegistrationHold[]
   programHistory   StudentProgramHistory[]
+
+  registrations   CourseRegistration[]
+  academicRecords AcademicRecord[]
+  coursePlans     CoursePlan[]
 
   @@index([programId, status])
   @@index([status])
@@ -1050,6 +1062,10 @@ model Course {
   requirementGroups    RequirementCourse[]
   sections             CourseSection[]
 
+  registrations   CourseRegistration[]
+  academicRecords AcademicRecord[]
+  planItems       CoursePlanItem[]
+
   @@index([departmentId, status])
   @@index([searchVector], type: Gin, map: "courses_search_vector")
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "courses_title_trgm")
@@ -1228,6 +1244,9 @@ model CourseSection {
   instructors  SectionInstructor[]
   restrictions CourseRestriction[]
 
+  registrations CourseRegistration[]
+  planItems     CoursePlanItem[]
+
   @@unique([courseId, sessionId, sectionCode])
   @@index([sessionId, status])
   @@index([courseId, sessionId])
@@ -1265,4 +1284,203 @@ model SectionInstructor {
   @@id([sectionId, facultyMemberId])
   @@index([facultyMemberId])
   @@map("section_instructors")
+}
+
+// ============================================================================
+// Registration engine (Phase 6, DATABASE.md §3.6)
+// ============================================================================
+
+enum RegistrationStatus {
+  PENDING
+  REGISTERED
+  WAITLISTED
+  OFFERED
+  DROPPED
+  WITHDRAWN
+  REJECTED
+  CANCELLED
+  EXPIRED
+  COMPLETED
+}
+
+enum RegistrationRequestType {
+  WITHDRAWAL
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum RecordSource {
+  ENROLLMENT
+  TRANSFER
+  EXEMPTION
+}
+
+enum NotificationCategory {
+  REGISTRATION
+  WAITLIST
+  ANNOUNCEMENT
+  MESSAGE
+  TICKET
+  FEEDBACK
+  SCHEDULE
+  SYSTEM
+}
+
+/// One attempt by a student at a section. Seat-holding: PENDING, REGISTERED, OFFERED.
+model CourseRegistration {
+  id             String             @id @default(uuid(7)) @db.Uuid
+  studentId      String             @map("student_id") @db.Uuid
+  sectionId      String             @map("section_id") @db.Uuid
+  /// Denormalised from the section for the one-active-attempt index (kept equal by a trigger).
+  courseId       String             @map("course_id") @db.Uuid
+  sessionId      String             @map("session_id") @db.Uuid
+  status         RegistrationStatus
+  /// Credits snapshot at registration time.
+  credits        Decimal            @db.Decimal(4, 1)
+  waitlistedAt   DateTime?          @map("waitlisted_at") @db.Timestamptz(3)
+  offerExpiresAt DateTime?          @map("offer_expires_at") @db.Timestamptz(3)
+  registeredAt   DateTime?          @map("registered_at") @db.Timestamptz(3)
+  endedAt        DateTime?          @map("ended_at") @db.Timestamptz(3)
+  idempotencyKey String?            @map("idempotency_key") @db.VarChar(100)
+  /// Rule codes bypassed by an administrator (FR-ADMIN-022).
+  overrides      String[]           @default([])
+  overrideReason String?            @map("override_reason") @db.VarChar(500)
+  createdById    String?            @map("created_by_id") @db.Uuid
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  student  Student               @relation(fields: [studentId], references: [id])
+  section  CourseSection         @relation(fields: [sectionId], references: [id])
+  course   Course                @relation(fields: [courseId], references: [id])
+  session  AcademicSession       @relation(fields: [sessionId], references: [id])
+  events   RegistrationEvent[]
+  requests RegistrationRequest[]
+  record   AcademicRecord?
+
+  @@unique([studentId, idempotencyKey])
+  @@index([sectionId, status])
+  @@index([studentId, sessionId, status])
+  @@index([sectionId, status, waitlistedAt, id])
+  @@index([status, offerExpiresAt])
+  @@map("course_registrations")
+}
+
+/// Append-only history of a registration (FR-REG-020).
+model RegistrationEvent {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  registrationId String              @map("registration_id") @db.Uuid
+  fromStatus     RegistrationStatus? @map("from_status")
+  toStatus       RegistrationStatus  @map("to_status")
+  action         String              @db.VarChar(40)
+  actorId        String?             @map("actor_id") @db.Uuid
+  reason         String?             @db.VarChar(500)
+  details        Json?
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  registration CourseRegistration @relation(fields: [registrationId], references: [id])
+  actor        User?              @relation(fields: [actorId], references: [id])
+
+  @@index([registrationId, createdAt])
+  @@map("registration_events")
+}
+
+/// Requests needing an administrator's decision (withdrawal when the policy requires approval).
+model RegistrationRequest {
+  id             String                  @id @default(uuid(7)) @db.Uuid
+  registrationId String                  @map("registration_id") @db.Uuid
+  type           RegistrationRequestType
+  status         RequestStatus           @default(PENDING)
+  reason         String?                 @db.VarChar(1000)
+  decidedById    String?                 @map("decided_by_id") @db.Uuid
+  decisionNote   String?                 @map("decision_note") @db.VarChar(500)
+  decidedAt      DateTime?               @map("decided_at") @db.Timestamptz(3)
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  registration CourseRegistration @relation(fields: [registrationId], references: [id])
+  decidedBy    User?              @relation("RequestDecider", fields: [decidedById], references: [id])
+
+  @@index([status, createdAt])
+  @@index([registrationId])
+  @@map("registration_requests")
+}
+
+/// One completed course attempt (ADR-009): the source for prerequisites, progress and GPA.
+model AcademicRecord {
+  id                  String       @id @default(uuid(7)) @db.Uuid
+  studentId           String       @map("student_id") @db.Uuid
+  courseId            String       @map("course_id") @db.Uuid
+  sessionId           String?      @map("session_id") @db.Uuid
+  registrationId      String?      @unique @map("registration_id") @db.Uuid
+  source              RecordSource
+  courseCodeSnapshot  String       @map("course_code_snapshot") @db.VarChar(20)
+  courseTitleSnapshot String       @map("course_title_snapshot") @db.VarChar(200)
+  creditsAttempted    Decimal      @map("credits_attempted") @db.Decimal(4, 1)
+  creditsEarned       Decimal      @map("credits_earned") @db.Decimal(4, 1)
+  gradeLetter         String?      @map("grade_letter") @db.VarChar(5)
+  gradePoints         Decimal?     @map("grade_points") @db.Decimal(4, 2)
+  countsInGpa         Boolean      @default(true) @map("counts_in_gpa")
+  passed              Boolean
+  version             Int          @default(1)
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  student      Student             @relation(fields: [studentId], references: [id])
+  course       Course              @relation(fields: [courseId], references: [id])
+  session      AcademicSession?    @relation(fields: [sessionId], references: [id])
+  registration CourseRegistration? @relation(fields: [registrationId], references: [id])
+
+  @@index([studentId, courseId])
+  @@index([studentId, sessionId])
+  @@map("academic_records")
+}
+
+model CoursePlan {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  studentId String   @map("student_id") @db.Uuid
+  sessionId String   @map("session_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  student Student          @relation(fields: [studentId], references: [id])
+  session AcademicSession  @relation(fields: [sessionId], references: [id])
+  items   CoursePlanItem[]
+
+  @@unique([studentId, sessionId, name])
+  @@map("course_plans")
+}
+
+model CoursePlanItem {
+  planId    String  @map("plan_id") @db.Uuid
+  courseId  String  @map("course_id") @db.Uuid
+  sectionId String? @map("section_id") @db.Uuid
+  position  Int     @default(0) @db.SmallInt
+
+  plan    CoursePlan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  course  Course         @relation(fields: [courseId], references: [id])
+  section CourseSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  @@id([planId, courseId])
+  @@map("course_plan_items")
+}
+
+model Notification {
+  id        String               @id @default(uuid(7)) @db.Uuid
+  userId    String               @map("user_id") @db.Uuid
+  category  NotificationCategory
+  title     String               @db.VarChar(200)
+  body      String               @db.VarChar(2000)
+  link      String?              @db.VarChar(500)
+  readAt    DateTime?            @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
+  @@map("notifications")
 }

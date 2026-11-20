@@ -30,6 +30,8 @@ import { restrictionDtos } from '../courses/courses.service.js';
 import { seesAllSections } from '../courses/course-scope.js';
 import { hasDependents } from '../structure-scope.js';
 import { findConflicts, lockSessionSchedule, type Conflict } from './section-conflicts.js';
+import { enqueuePromotion } from '../registrations/registration-core.js';
+import { cancelSectionRegistrations } from '../registrations/waitlist.service.js';
 
 const invalid = (path: string, message: string) =>
   new BusinessRuleError(ErrorCode.VALIDATION_ERROR, message, {
@@ -371,7 +373,12 @@ export async function updateSection(
       tx,
     );
   });
-  // Raising capacity promotes waitlisted students once registrations exist (Phase 6).
+  // More seats, or registration reopened, lets waitlisted students move up (FR-CRS-009, FR-REG-022).
+  if (
+    (input.capacity ?? 0) > before.capacity ||
+    (input.registrationOpen && !before.registrationOpen)
+  )
+    await enqueuePromotion(id);
   return toDto(await load(id), actor);
 }
 
@@ -711,6 +718,7 @@ export async function transitionSection(
       );
   }
   const now = new Date();
+  let notify: () => void = () => undefined;
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM course_sections WHERE id = ${id}::uuid FOR UPDATE`;
     if (input.action === 'publish' || input.action === 'reopen') {
@@ -737,8 +745,9 @@ export async function transitionSection(
           : {}),
       },
     });
-    // Cancelling also cancels registrations and waitlist entries and notifies people
-    // once registrations exist (FR-CRS-010, BR-009; Phase 6/9).
+    // Cancelling cancels registrations and waitlist entries and notifies people (FR-CRS-010, BR-009).
+    if (input.action === 'cancel')
+      notify = await cancelSectionRegistrations(tx, s, actor.userId, input.reason);
     await recordAudit(
       actor,
       {
@@ -750,6 +759,8 @@ export async function transitionSection(
       tx,
     );
   });
+  notify();
+  if (input.action === 'reopen') await enqueuePromotion(id);
   return toDto(await load(id), actor);
 }
 

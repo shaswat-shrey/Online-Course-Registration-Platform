@@ -516,6 +516,7 @@ const SESSIONS: Array<{
   end: string;
   status: SessionStatus;
   current?: boolean;
+  approvalMode?: 'NONE' | 'ALL' | 'CROSS_DEPARTMENT' | 'LATE_ONLY';
   period: { opens: string; closes: string; late?: string; addDrop: string; withdrawal: string };
   windows?: Array<{ name: string; opens: string; yearOfStudy: number }>;
 }> = [
@@ -575,16 +576,18 @@ const SESSIONS: Array<{
     end: '2027-05-21',
     status: 'PLANNED',
     current: true,
+    // Registration is open as of the seeded "today" (20 Nov 2026), with priority windows before it.
+    approvalMode: 'CROSS_DEPARTMENT',
     period: {
-      opens: '2026-12-01T09:00',
+      opens: '2026-11-18T09:00',
       closes: '2027-01-10T23:59',
       late: '2027-01-17T23:59',
       addDrop: '2027-01-24T23:59',
       withdrawal: '2027-04-16T23:59',
     },
     windows: [
-      { name: 'Final-year students', opens: '2026-11-27T09:00', yearOfStudy: 4 },
-      { name: 'Third-year students', opens: '2026-11-28T09:00', yearOfStudy: 3 },
+      { name: 'Final-year students', opens: '2026-11-16T09:00', yearOfStudy: 4 },
+      { name: 'Third-year students', opens: '2026-11-17T09:00', yearOfStudy: 3 },
     ],
   },
 ];
@@ -736,7 +739,7 @@ export async function seedStructure() {
             minCredits: 12,
             maxCredits: 24,
             maxCreditsWithOverride: 28,
-            approvalMode: 'LATE_ONLY',
+            approvalMode: s.approvalMode ?? 'LATE_ONLY',
             waitlistEnabled: true,
             waitlistMaxPerSection: 15,
           },

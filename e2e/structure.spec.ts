@@ -95,6 +95,6 @@ test.describe('university structure administration', () => {
     await expect(
       page.getByText('Times are in the university time zone (Asia/Kolkata).'),
     ).toBeVisible();
-    await expect(page.getByLabel('Registration opens')).toHaveValue('2026-12-01T09:00');
+    await expect(page.getByLabel('Registration opens')).toHaveValue('2026-11-18T09:00');
   });
 });

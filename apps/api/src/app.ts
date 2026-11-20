@@ -14,6 +14,9 @@ import { createLocalStorageRouter } from './infrastructure/storage/local-storage
 import { classroomsRouter } from './modules/classrooms/classrooms.routes.js';
 import { coursesRouter } from './modules/courses/courses.routes.js';
 import { sectionsRouter } from './modules/sections/sections.routes.js';
+import { plansRecordsRouter } from './modules/registrations/plans-records.routes.js';
+import { registrationsRouter } from './modules/registrations/registrations.routes.js';
+import { notificationsRouter } from './modules/notifications/notifications.routes.js';
 import { calendarRouter } from './modules/academic-sessions/calendar.routes.js';
 import { auditRouter } from './modules/audit/audit.routes.js';
 import { peopleAdminRouter } from './modules/administrators/administrators.routes.js';
@@ -96,6 +99,9 @@ export function createApp(): Express {
   api.use(classroomsRouter);
   api.use(coursesRouter);
   api.use(sectionsRouter);
+  api.use(registrationsRouter);
+  api.use(plansRecordsRouter);
+  api.use(notificationsRouter);
   api.use(importsRouter);
   app.use(API_PREFIX, api);
 

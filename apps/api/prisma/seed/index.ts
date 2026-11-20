@@ -12,6 +12,7 @@ import { invalidateAuthState } from '../../src/modules/authz/grants.service.js';
 import { syncRbacCatalog } from '../../src/modules/rbac/rbac.bootstrap.js';
 import { seedCatalog } from './courses.js';
 import { seedPeople } from './people.js';
+import { seedRegistrations } from './registrations.js';
 import { seedStructure } from './structure.js';
 
 async function seedUniversity() {
@@ -145,6 +146,8 @@ async function main() {
   console.warn(
     `Catalog seeded (${catalog.classrooms} classrooms, ${catalog.courses} courses, ${catalog.sections} sections created).`,
   );
+  const registrations = await seedRegistrations();
+  console.warn(`Registrations seeded (${registrations.created} created).`);
 }
 
 main()

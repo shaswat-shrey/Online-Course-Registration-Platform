@@ -6,6 +6,13 @@ import { closeQueues, getQueue, QUEUE_PREFIX, QueueName } from './infrastructure
 import { createQueueConnection, redis, waitForRedis } from './infrastructure/redis/redis.js';
 import { purgeStalePendingFiles } from './modules/files/files.service.js';
 import { processImportJob } from './modules/imports/imports.service.js';
+import {
+  expireOffer,
+  promoteSection,
+  reconcileCounters,
+  sweepWaitlists,
+} from './modules/registrations/waitlist.service.js';
+import { purgeOldNotifications } from './modules/notifications/notifications.service.js';
 
 /** Last time the worker ran its heartbeat; read by admin system alerts (Phase 11). */
 export const WORKER_HEARTBEAT_KEY = 'worker:heartbeat';
@@ -20,12 +27,31 @@ const processors: Partial<Record<QueueName, { processor: Processor; concurrency:
     concurrency: 1,
     processor: async (job: Job<{ jobId: string }>) => processImportJob(job.data.jobId),
   },
+  [QueueName.WAITLIST]: {
+    concurrency: 5,
+    processor: async (job: Job<{ sectionId?: string; registrationId?: string }>) => {
+      switch (job.name) {
+        case 'promote':
+          return promoteSection(job.data.sectionId!);
+        case 'expire-offer':
+          return expireOffer(job.data.registrationId!);
+        default:
+          throw new Error(`Unknown waitlist job: ${job.name}`);
+      }
+    },
+  },
   [QueueName.MAINTENANCE]: {
     concurrency: 1,
     processor: async (job: Job) => {
       switch (job.name) {
         case 'purge-pending-files':
           return { purged: await purgeStalePendingFiles() };
+        case 'waitlist-sweep':
+          return sweepWaitlists();
+        case 'reconcile-counters':
+          return reconcileCounters();
+        case 'purge-notifications':
+          return { purged: await purgeOldNotifications() };
         case 'heartbeat':
           await redis.set(WORKER_HEARTBEAT_KEY, new Date().toISOString(), 'EX', 300);
           return { ok: true };
@@ -69,6 +95,21 @@ async function main() {
     'purge-pending-files',
     { every: 60 * 60_000 },
     { name: 'purge-pending-files', opts: { attempts: 3 } },
+  );
+  await getQueue(QueueName.MAINTENANCE).upsertJobScheduler(
+    'waitlist-sweep',
+    { every: 5 * 60_000 },
+    { name: 'waitlist-sweep', opts: { attempts: 3 } },
+  );
+  await getQueue(QueueName.MAINTENANCE).upsertJobScheduler(
+    'reconcile-counters',
+    { every: 60 * 60_000 },
+    { name: 'reconcile-counters', opts: { attempts: 3 } },
+  );
+  await getQueue(QueueName.MAINTENANCE).upsertJobScheduler(
+    'purge-notifications',
+    { every: 24 * 60 * 60_000 },
+    { name: 'purge-notifications', opts: { attempts: 3 } },
   );
   logger.info({ queues: Object.keys(processors) }, 'Worker started');
 

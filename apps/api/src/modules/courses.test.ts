@@ -147,11 +147,11 @@ describe('courses', () => {
 
     await put(a!.id, [{ items: [{ courseId: a!.id }] }]).expect(422);
     // A requires C would close the loop C → A → C.
-    const cycle = await put(a!.id, [{ items: [{ courseId: c!.id }] }]).expect(409);
+    const cycle = await put(a!.id, [{ items: [{ courseId: c!.id }] }]).expect(422);
     expect(cycle.body.error.code).toBe('PREREQUISITE_CYCLE');
     expect(cycle.body.error.details.cycle).toEqual(['A1', 'C1', 'A1']);
     // A longer path: D requires C (C → D → C).
-    expect((await put(d!.id, [{ items: [{ courseId: c!.id }] }]).expect(409)).body.error.code).toBe(
+    expect((await put(d!.id, [{ items: [{ courseId: c!.id }] }]).expect(422)).body.error.code).toBe(
       'PREREQUISITE_CYCLE',
     );
 

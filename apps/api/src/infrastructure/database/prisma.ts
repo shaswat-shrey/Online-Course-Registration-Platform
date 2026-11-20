@@ -9,6 +9,9 @@ function createPrismaClient(): PrismaClient {
   return new PrismaClient({
     adapter,
     log: env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+    // Registration transactions queue on row locks of busy sections (ARCHITECTURE.md §8):
+    // allow time to obtain a connection and to wait for the lock, but keep each bounded.
+    transactionOptions: { maxWait: 15_000, timeout: 20_000 },
   });
 }
 

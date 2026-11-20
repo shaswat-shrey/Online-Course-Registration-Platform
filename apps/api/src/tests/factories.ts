@@ -16,7 +16,8 @@ export async function createUser(
     password?: string | null;
   } = {},
 ) {
-  counter += 1;
+  // Captured before any await so parallel calls get distinct values.
+  const n = ++counter;
   const password = options.password === undefined ? TEST_PASSWORD : options.password;
   cachedHash ??= await hashPassword(TEST_PASSWORD);
   const passwordHash =
@@ -28,9 +29,9 @@ export async function createUser(
   const roles = await prisma.role.findMany({ where: { key: { in: options.roles ?? [] } } });
   return prisma.user.create({
     data: {
-      email: options.email ?? `user${counter}-${Date.now()}@test.edu`,
+      email: options.email ?? `user${n}-${Date.now()}@test.edu`,
       firstName: 'Test',
-      lastName: `User${counter}`,
+      lastName: `User${n}`,
       passwordHash,
       status: options.status ?? 'ACTIVE',
       roles: { create: roles.map((r) => ({ roleId: r.id, scopeType: 'GLOBAL' as const })) },
@@ -161,12 +162,12 @@ export async function createStudentRecord(
   programId: string,
   options: { email?: string; yearOfStudy?: number } = {},
 ) {
+  const n = ++counter;
   const user = await createUser({ roles: ['STUDENT'], email: options.email });
-  counter += 1;
   const student = await prisma.student.create({
     data: {
       userId: user.id,
-      studentNumber: `TS${Date.now().toString().slice(-6)}${counter}`,
+      studentNumber: `TS${n}X${Date.now().toString().slice(-6)}`,
       programId,
       yearOfStudy: options.yearOfStudy ?? 1,
     },
@@ -178,12 +179,12 @@ export async function createFacultyRecord(
   departmentId: string,
   overrides: { designation?: 'PROFESSOR' | 'LECTURER' } = {},
 ) {
+  const n = ++counter;
   const user = await createUser({ roles: ['FACULTY'] });
-  counter += 1;
   const member = await prisma.facultyMember.create({
     data: {
       userId: user.id,
-      employeeNumber: `TF${Date.now().toString().slice(-6)}${counter}`,
+      employeeNumber: `TF${n}X${Date.now().toString().slice(-6)}`,
       departmentId,
       designation: overrides.designation ?? 'PROFESSOR',
     },

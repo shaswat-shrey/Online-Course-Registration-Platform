@@ -1070,7 +1070,7 @@ const SCHOOL_CAMPUS: Record<string, string> = {
   EDU: 'NORTH',
 };
 
-async function seedSessionSections(
+export async function seedSessionSections(
   sessionCode: string,
   options: { levels: number[]; status: SectionStatus; publishShare: number; multiSection: boolean },
 ) {
