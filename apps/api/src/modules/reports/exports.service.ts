@@ -39,7 +39,7 @@ export async function renderFile(report: ReportDefinition, rows: Row[], format: 
       report.columns.map((c) => csvCell(c.label)).join(','),
       ...rows.map((r) => report.columns.map((c) => csvCell(r[c.key])).join(',')),
     ];
-    return Buffer.from(`﻿${lines.join('\r\n')}\r\n`, 'utf8');
+    return Buffer.from(`\uFEFF${lines.join('\r\n')}\r\n`, 'utf8');
   }
   const book = new ExcelJS.Workbook();
   book.creator = 'UCRAMS';

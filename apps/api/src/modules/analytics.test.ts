@@ -233,7 +233,7 @@ describe('report center (FR-RPT-001..004)', () => {
       include: { file: true },
     });
     const text = (await storage.getObject(csvJob.file!.storageKey)).toString('utf8');
-    expect(text.startsWith('﻿"Department"')).toBe(true);
+    expect(text.startsWith('\uFEFF"Department"')).toBe(true);
 
     // The worker path (used above 5,000 rows) re-runs the report with the requester's grants.
     const requester = await prisma.user.findFirstOrThrow({ where: { exportJobs: { some: {} } } });
