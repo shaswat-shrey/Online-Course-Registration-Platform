@@ -10,6 +10,7 @@ export const ACCOUNTS = {
   superAdmin: 'superadmin@ucrams.local',
   universityAdmin: 'uniadmin@ucrams.local',
   registrar: 'registrar@ucrams.local',
+  departmentAdmin: 'cs.admin@ucrams.local',
   faculty: 'faculty.cs@ucrams.local',
   student: 'student.cs@ucrams.local',
 } as const;

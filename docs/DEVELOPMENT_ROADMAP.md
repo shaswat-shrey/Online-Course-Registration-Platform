@@ -1,7 +1,7 @@
 # Development Roadmap
 
-**Current phase:** Phase 2 — Authentication and access control (**complete**, 2026-11-20)
-**Next phase:** Phase 3 — University structure
+**Current phase:** Phase 3 — University structure (**complete**, 2026-11-20)
+**Next phase:** Phase 4 — Student and faculty management
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -70,11 +70,22 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - Socket.IO client in the web app is added with real-time features (Phase 9).
 
 ## Phase 3 — University structure
-- [ ] Models + APIs: University, Campus, School, Department, Degree, Program, Specialization, RequirementGroup, RequirementCourse (course FK added in Phase 5), AcademicYear, AcademicSession, SessionPolicy, RegistrationPeriod, PriorityWindow, GradingScale
-- [ ] Scope-aware list filtering; deactivate vs delete
-- [ ] Admin UI: CRUD pages with DataTable, forms, detail pages with stats
-- [ ] Seed: schools, departments, degrees, programs, specializations (SRS / DATABASE §10), years, sessions, periods, example grading scales
-- [ ] Tests: CRUD, uniqueness, scope
+- [x] Models: Campus, School, Department, Degree, Program, Specialization, RequirementGroup, AcademicYear, AcademicSession, SessionPolicy, RegistrationPeriod, PriorityWindow, GradingScale, GradeScaleEntry; CHECK constraints (dates, credits, owner XOR, period ordering, priority criteria), one current session per type (partial unique), trigram name indexes
+- [x] Shared Zod input schemas (`@ucrams/shared/structure`) used by API and forms
+- [x] APIs: university profile, campuses, schools, departments, degrees, programs, specializations, requirement groups, academic years, sessions (+ lifecycle transitions), policy, registration period, priority windows, grading scales
+- [x] Scope-aware writes (department admins: own department only, no create/move; moving needs authority over both ends); reads open to signed-in users; `canManage` flags in list/detail responses
+- [x] Deactivate vs delete rules (no deactivation with active children; delete only unreferenced; no creation under inactive parents); grading bands locked once a completed session uses the scale; program-level requirement credits within program total
+- [x] Real scope resolver for SCHOOL/DEPARTMENT role assignments; department admin dev account (`cs.admin@ucrams.local`, CS)
+- [x] Admin UI: university & campuses, faculties (list/detail), departments (list/detail), degrees, programs (list/detail with requirements and specializations), academic calendar (sessions/years), session detail (lifecycle, registration period in university time zone, policy, priority windows), grading scales editor; URL-synced search/filters/pagination; server field errors mapped onto form fields
+- [x] Seed (idempotent): 9 faculties, 32 departments (all 12 engineering departments), 16 degrees, 32 programs, 33 specializations (Biology ×5, Arts ×10, Law ×8, CS ×3, BBA ×3, MBA ×4), 136 requirement groups, 2 academic years, 4 sessions with policies/periods/priority windows, 2 example grading scales
+- [x] Tests: API +20 (181 total), shared +7 (22), web +8 (39, incl. time-zone helpers), E2E +6 (28 runs: create department → program → requirement → specialization and delete them; department-admin scope; time-zone display)
+
+**Verified manually (browser):** programs list/detail with seeded data, session registration period shown in IST, client-side ordering validation, duplicate-code 409 mapped to the Code field, no horizontal overflow at 1024 px (fixed `SidebarInset` min-width bug found here).
+
+**Deferred, by design:**
+- Department head / faculty dean, and faculty/student/course counts on department pages, need faculty and student records (Phase 4) and courses (Phase 5).
+- Course lists for `ALL_OF` / `CREDITS_FROM_LIST` requirement groups are attached in Phase 5 (`requirement_courses`).
+- Notifying students when an active session's dates move (BR-020) arrives with notifications (Phase 9); the change is audited distinctly now (`session.active_dates_changed`).
 
 ## Phase 4 — Student and faculty management
 - [ ] Models: Student, StudentContact, StudentProgramHistory, RegistrationHold, FacultyMember, FacultySecondaryDepartment, AdminProfile
@@ -182,6 +193,8 @@ _None known._
 | TD-006 | If Redis is down while a session is revoked, the revocation is only in the DB; the session's access token stays valid until it expires (≤ 15 min) | Accept (documented), or add a short DB check fallback when Redis was recently unavailable (Phase 12 review) |
 | TD-007 | `DataTable` is a simple server-driven table; column visibility, sorting UI and bulk actions (TanStack Table) arrive with the first large admin tables | Phase 3/4 |
 | TD-008 | `seed --reset-roles` restores system role permissions without bumping holders' `permissionsVersion` (dev-only command) | Bump versions if the command is ever used outside development |
+| TD-010 | The "New department" button is shown to anyone holding `department:manage`, including department-scoped admins who can't create departments (the API returns 403 and the dialog shows it) | Expose assignment scopes per permission in `/auth/me` and hide create actions that no scope permits (Phase 4) |
+| TD-011 | Structure lists use offset pagination and `ILIKE` search backed by trigram indexes; adequate for hundreds of rows | Revisit with the course catalog (Phase 5), which needs full-text search |
 | TD-009 | The current shadcn CLI generates components that import `cn` from shadcn's own `cn` npm package. The project standardises on the local `@/lib/utils` helper (same clsx + tailwind-merge behaviour), so generated imports are rewritten and the package is not a dependency | Rewrite the import whenever adding shadcn components (or switch wholesale to the `cn` package) |
 
 ## Architectural decisions
@@ -216,7 +229,18 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | Partial unique indexes on `user_roles` instead of `NULLS NOT DISTINCT` | Prisma ignores partial indexes in drift detection; it tried to drop the other form on every `migrate dev` |
 | Session end reason (`signed-out` / `expired`) in the client auth store | Explicit sign-out goes to a clean `/login`; expiry keeps `next` and shows "Your session ended" |
 
+## Phase 3 implementation decisions
+| Decision | Reason |
+|---|---|
+| Schema validation → 400, database-dependent business validation → 422 (`VALIDATION_ERROR` with `details.fields`) | Clients can tell "malformed input" from "valid input the current data rejects" while forms still map both to fields |
+| One registration period per session (`session_id` unique) | The SRS models one period per session; late registration is a window within it |
+| Reads of structure and calendar are open to every signed-in user | Students and faculty need departments, programs and deadlines for catalog browsing and planning; nothing here is personal data |
+| Registration-period instants stored in UTC, edited/displayed in the university time zone (not the browser's) | Deadlines are institutional (SRS A-05); admins elsewhere must see the same wall-clock times |
+| Seed never overwrites existing rows | Edits made through the UI survive `db:seed` |
+| Requirement-group PUT/DELETE declare `authenticated` access and check `program:manage` or `specialization:manage` in the service | The needed permission depends on the group's owner |
+
 ## Changelog
+- 2026-11-20 — Phase 3 complete: university structure and academic calendar (API, admin UI, seed), 242 unit/integration + 28 E2E runs.
 - 2026-11-20 — Phase 2 complete: authentication, sessions, RBAC with relationship scopes, audit log, admin/faculty/student portal shells, 155 unit/integration + 22 E2E tests.
 - 2026-11-20 — Phase 1 complete: monorepo, API foundation, worker, storage, mail, sockets, OpenAPI, web shell, tests (52 + 6 E2E), Docker/CI files.
 - 2026-11-20 — Phase 0 deliverables created: SRS, Architecture, Database (ERD), API, Security, Testing, Roles & Permissions, Roadmap, README.

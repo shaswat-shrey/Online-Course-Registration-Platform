@@ -69,7 +69,7 @@ Message lists and notifications use cursor pagination (`cursor`, `limit`) and re
 | 403 | `FORBIDDEN` (authenticated, lacking permission, resource visible) |
 | 404 | `NOT_FOUND` (also used when the resource exists but the caller may not know it exists) |
 | 409 | `CONFLICT`, `DUPLICATE_REGISTRATION`, `SECTION_FULL`, `UNIQUE_VIOLATION`, `STALE_UPDATE` |
-| 422 | Business rule violations (registration rules, state transitions) |
+| 422 | Business rule violations (registration rules, state transitions) and validation that depends on stored data (e.g. credit budgets, dates within a session, inactive parents), with `details.fields` when a field is responsible. Pure schema validation is 400. |
 | 423 | `ACCOUNT_LOCKED` (only after successful credential check, to avoid enumeration; otherwise generic 401) |
 | 429 | `RATE_LIMITED` (with `Retry-After`) |
 | 500 | `INTERNAL_ERROR` |
@@ -132,13 +132,14 @@ The table lists the main endpoints per group. Standard CRUD = `GET /x` (list), `
 | **Students** | CRUD `/students`, `GET /students/me`, `PATCH /students/me`, `POST /students/{id}/change-program`, `GET /students/{id}/registrations`, `GET /students/{id}/progress`, `GET /students/{id}/records`, `GET/POST /students/{id}/holds`, `POST /holds/{id}/release`, `POST /students/imports` (multipart CSV/XLSX → ImportJob), `GET /imports/{id}` |
 | **Faculty** | CRUD `/faculty`, `GET /faculty/me`, `PATCH /faculty/me`, `GET /faculty/{id}/schedule`, `GET /faculty/{id}/workload`, `POST /faculty/imports` |
 | **Administrators** | CRUD `/administrators` |
-| **University** | `GET /university/public` (implemented, Phase 1: public branding fields), `GET/PATCH /university`, CRUD `/campuses` |
-| **Schools** | CRUD `/schools`, `GET /schools/{id}/stats` |
-| **Departments** | CRUD `/departments`, `GET /departments/{id}/stats` |
-| **Degrees** | CRUD `/degrees` |
-| **Programs** | CRUD `/programs`, `GET/PUT /programs/{id}/requirements` |
-| **Specializations** | CRUD `/specializations`, `GET/PUT /specializations/{id}/requirements` |
-| **Academic sessions** | CRUD `/academic-years`, CRUD `/academic-sessions`, `POST /academic-sessions/{id}/activate|complete`, `GET/PUT /academic-sessions/{id}/policy`, CRUD `/registration-periods`, CRUD `/registration-periods/{id}/priority-windows`, CRUD `/grading-scales` |
+| **University** (implemented, Phase 3) | `GET /university/public`, `GET/PATCH /university`, `GET/POST /campuses`, `PATCH/DELETE /campuses/{id}` |
+| **Schools** (implemented, Phase 3) | `GET/POST /schools` (search `q`, `status`, sort, pagination), `GET/PATCH/DELETE /schools/{id}` (detail includes counts) |
+| **Departments** (implemented, Phase 3) | `GET/POST /departments` (`q`, `status`, `schoolId`), `GET/PATCH/DELETE /departments/{id}`; responses carry `canManage` |
+| **Degrees** (implemented, Phase 3) | `GET/POST /degrees` (`level`, `status`), `PATCH/DELETE /degrees/{id}` |
+| **Programs** (implemented, Phase 3) | `GET/POST /programs` (`q`, `status`, `departmentId`, `schoolId`, `degreeId`, `level`), `GET/PATCH/DELETE /programs/{id}` (detail includes specializations and requirement groups), `POST /programs/{id}/requirement-groups`, `PUT/DELETE /requirement-groups/{id}` |
+| **Specializations** (implemented, Phase 3) | `GET /programs/{id}/specializations`, `POST /specializations`, `PATCH/DELETE /specializations/{id}`, `POST /specializations/{id}/requirement-groups` |
+| **Academic calendar** (implemented, Phase 3) | `GET/POST /academic-years`, `PATCH/DELETE /academic-years/{id}`, `GET/POST /academic-sessions` (`academicYearId`, `status`, `current`), `GET/PATCH/DELETE /academic-sessions/{id}`, `POST /academic-sessions/{id}/transition` (`activate`, `complete`, `archive`, `make-current`), `PUT /academic-sessions/{id}/policy`, `PUT /academic-sessions/{id}/registration-period`, `POST/DELETE /academic-sessions/{id}/priority-windows[/{windowId}]`; session responses include policy, period and computed `registrationState` |
+| **Grading scales** (implemented, Phase 3) | `GET/POST /grading-scales`, `GET/PUT/DELETE /grading-scales/{id}` (bands locked once a completed session uses the scale) |
 | **Classrooms** | CRUD `/classrooms`, `GET /classrooms/{id}/schedule?sessionId=` |
 | **Courses** | CRUD `/courses`, `GET /courses/{id}/sections`, `PUT /courses/{id}/prerequisites`, `PUT /courses/{id}/corequisites`, `PUT /courses/{id}/programs`, `PUT /courses/{id}/specializations`, `PUT /courses/{id}/restrictions`, `GET /catalog` (student-facing search over published sections) |
 | **Course sections** | CRUD `/course-sections`, `PUT /course-sections/{id}/meetings`, `PUT /course-sections/{id}/instructors`, `POST /course-sections/{id}/publish|close|reopen|cancel`, `GET /course-sections/{id}/roster`, `GET /course-sections/{id}/roster/export`, `GET /course-sections/{id}/stats`, `POST /course-sections/roll-forward` |

@@ -236,7 +236,7 @@ Users with several portals (e.g. faculty who is also department admin) get a por
 | Super Admin | `superadmin@ucrams.local` | GLOBAL |
 | University Admin | `uniadmin@ucrams.local` | GLOBAL |
 | Academic Admin | `registrar@ucrams.local` | GLOBAL |
-| Department Admin | `cs.admin@ucrams.local` | DEPARTMENT: Computer Science (created in Phase 3, when departments exist) |
+| Department Admin | `cs.admin@ucrams.local` | DEPARTMENT: Computer Science |
 | Faculty | `faculty.cs@ucrams.local` | — |
 | Student | `student.cs@ucrams.local` | — |
 

@@ -1,4 +1,17 @@
-import { History, KeyRound, LayoutDashboard, ShieldCheck, type LucideIcon } from 'lucide-react';
+import {
+  Award,
+  Building2,
+  CalendarDays,
+  GraduationCap,
+  History,
+  KeyRound,
+  Landmark,
+  LayoutDashboard,
+  Percent,
+  School,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react';
 import type { PermissionKey, Portal } from '@ucrams/shared';
 
 export interface NavItem {
@@ -22,6 +35,23 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
     {
       label: 'General',
       items: [{ label: 'Overview', to: '/admin/dashboard', icon: LayoutDashboard }],
+    },
+    {
+      label: 'University',
+      items: [
+        { label: 'University', to: '/admin/university', icon: Landmark },
+        { label: 'Faculties', to: '/admin/schools', icon: School },
+        { label: 'Departments', to: '/admin/departments', icon: Building2 },
+        { label: 'Degrees', to: '/admin/degrees', icon: Award },
+        { label: 'Programs', to: '/admin/programs', icon: GraduationCap },
+      ],
+    },
+    {
+      label: 'Academic calendar',
+      items: [
+        { label: 'Sessions', to: '/admin/academic-sessions', icon: CalendarDays },
+        { label: 'Grading scales', to: '/admin/grading-scales', icon: Percent },
+      ],
     },
     {
       label: 'Access control',

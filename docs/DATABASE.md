@@ -1,6 +1,8 @@
 # Database Design
 
-> Status: identity, access and audit tables **implemented (Phase 2)**; everything else is design. Changes during implementation are reflected here.
+> Status: identity, access and audit tables **implemented (Phase 2)**; structure and calendar tables **implemented (Phase 3)**; everything else is design. Changes during implementation are reflected here.
+>
+> Phase 3 differences from the design below: `schools.dean_id` and `departments.head_id` are added with faculty members (Phase 4); `requirement_courses` with courses (Phase 5); `registration_periods.session_id` is unique (one period per session); campuses have no university FK (single tenant); `calendar_events` is not yet created.
 
 ## 1. Conventions
 

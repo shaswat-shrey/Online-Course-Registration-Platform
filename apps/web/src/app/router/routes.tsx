@@ -123,6 +123,111 @@ export const routes: RouteObject[] = [
           },
           portalRoutes('admin', 'Administration', [
             {
+              path: 'university',
+              handle: crumb('University'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/structure/pages/university-page'))
+                  .UniversityPage,
+              })),
+            },
+            {
+              path: 'schools',
+              handle: crumb('Faculties'),
+              children: [
+                {
+                  index: true,
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/structure/pages/schools-pages')).SchoolsPage,
+                  })),
+                },
+                {
+                  path: ':schoolId',
+                  handle: crumb('Faculty'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/structure/pages/schools-pages'))
+                      .SchoolDetailPage,
+                  })),
+                },
+              ],
+            },
+            {
+              path: 'departments',
+              handle: crumb('Departments'),
+              children: [
+                {
+                  index: true,
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/structure/pages/departments-pages'))
+                      .DepartmentsPage,
+                  })),
+                },
+                {
+                  path: ':departmentId',
+                  handle: crumb('Department'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/structure/pages/departments-pages'))
+                      .DepartmentDetailPage,
+                  })),
+                },
+              ],
+            },
+            {
+              path: 'degrees',
+              handle: crumb('Degrees'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/structure/pages/degrees-page')).DegreesPage,
+              })),
+            },
+            {
+              path: 'programs',
+              handle: crumb('Programs'),
+              children: [
+                {
+                  index: true,
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/structure/pages/programs-pages'))
+                      .ProgramsPage,
+                  })),
+                },
+                {
+                  path: ':programId',
+                  handle: crumb('Program'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/structure/pages/programs-pages'))
+                      .ProgramDetailPage,
+                  })),
+                },
+              ],
+            },
+            {
+              path: 'academic-sessions',
+              handle: crumb('Academic calendar'),
+              children: [
+                {
+                  index: true,
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/calendar/pages/sessions-page')).SessionsPage,
+                  })),
+                },
+                {
+                  path: ':sessionId',
+                  handle: crumb('Session'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/calendar/pages/session-detail-page'))
+                      .SessionDetailPage,
+                  })),
+                },
+              ],
+            },
+            {
+              path: 'grading-scales',
+              handle: crumb('Grading scales'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/calendar/pages/grading-scales-page'))
+                  .GradingScalesPage,
+              })),
+            },
+            {
               element: <RequirePermission permission="rbac:read" />,
               children: [
                 {

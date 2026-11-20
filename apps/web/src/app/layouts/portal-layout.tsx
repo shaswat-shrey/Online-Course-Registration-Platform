@@ -12,7 +12,7 @@ export function PortalLayout({ portal }: { portal: Portal }) {
   return (
     <SidebarProvider>
       <AppSidebar portal={portal} />
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background/90 px-3 backdrop-blur sm:px-4">
           <SidebarTrigger aria-label="Toggle navigation" />
           <Separator orientation="vertical" className="mr-1 h-5" />
