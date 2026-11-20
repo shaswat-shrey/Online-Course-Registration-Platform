@@ -33,6 +33,7 @@ import { CATEGORY_LABEL } from '@/features/structure/api/types';
 import { AnnouncementList, MaterialList } from '@/features/teaching/components/teaching-components';
 import { useMaterials, useSectionAnnouncements } from '@/features/teaching/api/teaching-queries';
 import { useSection } from '@/features/courses/api/courses-queries';
+import { DiscussionBoard } from '@/features/communication/pages/discussion-pages';
 import { errorMessage } from '@/services/api-error';
 import {
   downloadTimetableIcs,
@@ -48,7 +49,6 @@ import {
   useProgress,
   useRegisterPlan,
   useSavePlanItems,
-  useStudentAnnouncements,
   useTimetable,
 } from '../api/student-queries';
 import type {
@@ -60,7 +60,6 @@ import type {
   RequirementState,
 } from '../api/types';
 import {
-  AnnouncementFeed,
   DeadlineStrip,
   MyRegistrationActions,
   RegisterDialog,
@@ -1036,25 +1035,6 @@ export function HistoryPage() {
   );
 }
 
-export function StudentAnnouncementsPage() {
-  const list = useStudentAnnouncements();
-  return (
-    <>
-      <PageHeader
-        title="Announcements"
-        description="Messages from the instructors of your courses."
-      />
-      {list.isPending ? (
-        <LoadingRows rows={3} />
-      ) : list.isError ? (
-        <ErrorState error={list.error} onRetry={() => void list.refetch()} />
-      ) : (
-        <AnnouncementFeed items={list.data} empty="No announcements yet." />
-      )}
-    </>
-  );
-}
-
 /** A registered course: schedule, materials and announcements. */
 export function StudentCoursePage() {
   const { sectionId = '' } = useParams();
@@ -1075,6 +1055,7 @@ export function StudentCoursePage() {
         <TabsList className="mb-4">
           <TabsTrigger value="materials">Materials</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
+          <TabsTrigger value="discussions">Discussions</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
         </TabsList>
         <TabsContent value="materials">
@@ -1094,6 +1075,9 @@ export function StudentCoursePage() {
           ) : (
             <AnnouncementList items={announcements.data.items} emptyText="No announcements yet." />
           )}
+        </TabsContent>
+        <TabsContent value="discussions">
+          <DiscussionBoard sectionId={sectionId} portal="student" />
         </TabsContent>
         <TabsContent value="schedule">
           <Card>

@@ -20,6 +20,10 @@ import {
   UserRound,
   Users,
   Contact,
+  LifeBuoy,
+  MessageSquareText,
+  MessagesSquare,
+  MessageSquarePlus,
   type LucideIcon,
 } from 'lucide-react';
 import type { PermissionKey, Portal } from '@ucrams/shared';
@@ -91,6 +95,30 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
       ],
     },
     {
+      label: 'Communication',
+      items: [
+        {
+          label: 'Messages',
+          to: '/admin/messages',
+          icon: MessagesSquare,
+          permission: 'message:send',
+        },
+        { label: 'Announcements', to: '/admin/announcements', icon: Megaphone },
+        {
+          label: 'Support tickets',
+          to: '/admin/tickets',
+          icon: LifeBuoy,
+          permission: 'ticket:manage',
+        },
+        {
+          label: 'Feedback',
+          to: '/admin/feedback',
+          icon: MessageSquarePlus,
+          permission: 'feedback:manage',
+        },
+      ],
+    },
+    {
       label: 'Access control',
       items: [
         {
@@ -111,13 +139,25 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
     },
     {
       label: 'Teaching',
+      items: [{ label: 'My teaching', to: '/faculty/teaching', icon: BookOpen }],
+    },
+    {
+      label: 'Communication',
       items: [
-        { label: 'My teaching', to: '/faculty/teaching', icon: BookOpen },
         {
-          label: 'Announcements',
-          to: '/faculty/announcements',
-          icon: Megaphone,
-          permission: 'announcement:publish_section',
+          label: 'Messages',
+          to: '/faculty/messages',
+          icon: MessagesSquare,
+          permission: 'message:send',
+        },
+        { label: 'Announcements', to: '/faculty/announcements', icon: Megaphone },
+        { label: 'Discussions', to: '/faculty/discussions', icon: MessageSquareText },
+        { label: 'Support', to: '/faculty/support', icon: LifeBuoy, permission: 'ticket:submit' },
+        {
+          label: 'Feedback',
+          to: '/faculty/feedback',
+          icon: MessageSquarePlus,
+          permission: 'feedback:submit',
         },
       ],
     },
@@ -148,7 +188,26 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
       items: [
         { label: 'Degree progress', to: '/student/progress', icon: GraduationCap },
         { label: 'Academic history', to: '/student/history', icon: History },
+      ],
+    },
+    {
+      label: 'Communication',
+      items: [
+        {
+          label: 'Messages',
+          to: '/student/messages',
+          icon: MessagesSquare,
+          permission: 'message:send',
+        },
         { label: 'Announcements', to: '/student/announcements', icon: Megaphone },
+        { label: 'Discussions', to: '/student/discussions', icon: MessageSquareText },
+        { label: 'Support', to: '/student/support', icon: LifeBuoy, permission: 'ticket:submit' },
+        {
+          label: 'Feedback',
+          to: '/student/feedback',
+          icon: MessageSquarePlus,
+          permission: 'feedback:submit',
+        },
       ],
     },
     {

@@ -20,9 +20,10 @@ test.describe('student portal', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('You can register for this section.')).toBeVisible();
     await dialog.getByRole('button', { name: 'Register' }).click();
-    await expect(page.getByText(/^Registered in CS101 [A-C]$/)).toBeVisible();
+    await expect(page.getByText(/^Registered in CS101 [A-C]$/).first()).toBeVisible();
     const sectionLabel = (await page
       .getByText(/^Registered in CS101 [A-C]$/)
+      .first()
       .textContent())!.replace('Registered in ', '');
 
     // The instructor announces to that section.
@@ -51,6 +52,6 @@ test.describe('student portal', () => {
     await page.goto('/student/registrations');
     await page.getByRole('button', { name: 'Drop', exact: true }).first().click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Drop' }).click();
-    await expect(page.getByText(/^Dropped CS101/)).toBeVisible();
+    await expect(page.getByText(/^Dropped CS101/).first()).toBeVisible();
   });
 });

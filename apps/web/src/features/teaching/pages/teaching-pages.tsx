@@ -28,6 +28,8 @@ import {
   REGISTRATION_TONE,
   type RegistrationStatus,
 } from '@/features/registrations/api/types';
+import { AnnouncementFeed } from '@/features/communication/pages/announcement-pages';
+import { DiscussionBoard } from '@/features/communication/pages/discussion-pages';
 import { errorMessage } from '@/services/api-error';
 import { formatDate } from '@/utils/timezone';
 import {
@@ -409,6 +411,7 @@ export function SectionWorkspacePage() {
           <TabsTrigger value="roster">Roster ({s.enrolledCount})</TabsTrigger>
           <TabsTrigger value="materials">Materials</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
+          <TabsTrigger value="discussions">Discussions</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
           <Card>
@@ -545,6 +548,9 @@ export function SectionWorkspacePage() {
         <TabsContent value="announcements">
           <SectionAnnouncements sectionId={sectionId} />
         </TabsContent>
+        <TabsContent value="discussions">
+          <DiscussionBoard sectionId={sectionId} portal="faculty" />
+        </TabsContent>
       </Tabs>
     </>
   );
@@ -553,11 +559,13 @@ export function SectionWorkspacePage() {
 /** Announcements the faculty member has published, with a composer. */
 export function FacultyAnnouncementsPage() {
   const mine = useMyAnnouncements();
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('a') ? 'feed' : (params.get('tab') ?? 'mine');
   return (
     <>
       <PageHeader
         title="Announcements"
-        description="Messages you have sent to your sections."
+        description="Messages you send to your sections, and announcements for you."
         actions={
           <AnnouncementDialog
             trigger={(open) => (
@@ -568,16 +576,27 @@ export function FacultyAnnouncementsPage() {
           />
         }
       />
-      {mine.isPending ? (
-        <LoadingRows rows={3} />
-      ) : mine.isError ? (
-        <ErrorState error={mine.error} onRetry={() => void mine.refetch()} />
-      ) : (
-        <AnnouncementList
-          items={mine.data}
-          emptyText="You have not published any announcements yet."
-        />
-      )}
+      <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="mine">Published by you</TabsTrigger>
+          <TabsTrigger value="feed">For you</TabsTrigger>
+        </TabsList>
+        <TabsContent value="mine">
+          {mine.isPending ? (
+            <LoadingRows rows={3} />
+          ) : mine.isError ? (
+            <ErrorState error={mine.error} onRetry={() => void mine.refetch()} />
+          ) : (
+            <AnnouncementList
+              items={mine.data}
+              emptyText="You have not published any announcements yet."
+            />
+          )}
+        </TabsContent>
+        <TabsContent value="feed">
+          <AnnouncementFeed />
+        </TabsContent>
+      </Tabs>
     </>
   );
 }

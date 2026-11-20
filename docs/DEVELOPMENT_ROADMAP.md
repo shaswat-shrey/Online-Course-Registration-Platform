@@ -1,7 +1,7 @@
 # Development Roadmap
 
 **Current phase:** Phase 8 — Student portal (**complete**, 2026-11-20)
-**Next phase:** Phase 9 — Communication system
+**Next phase:** Phase 10 — Academic management
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -67,7 +67,7 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - Scoped (school/department) role assignment returns "Unknown school/department" until those tables exist (Phase 3); the department-admin dev account is created then.
 - User-level admin endpoints (sessions, unlock, role listing) require university-wide grants until users have departments (Phase 4).
 - MFA (TOTP) remains a Should item; the model has `mfaEnabled`.
-- Socket.IO client in the web app is added with real-time features (Phase 9).
+- Socket.IO client in the web app is added with real-time features (Phase 9). ✅ Done in Phase 9.
 
 ## Phase 3 — University structure
 - [x] Models: Campus, School, Department, Degree, Program, Specialization, RequirementGroup, AcademicYear, AcademicSession, SessionPolicy, RegistrationPeriod, PriorityWindow, GradingScale, GradeScaleEntry; CHECK constraints (dates, credits, owner XOR, period ordering, priority criteria), one current session per type (partial unique), trigram name indexes
@@ -186,11 +186,22 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - Grades appear in history once grading is posted (Phase 10); seeded history is graded already.
 
 ## Phase 9 — Communication system
-- [ ] Conversations, messages, attachments, read receipts, unread counts, search, Socket.IO delivery
-- [ ] Section conversations and discussions
-- [ ] Announcements (audiences, scheduling, pin, expiry, read tracking), fan-out
-- [ ] Notifications (preferences, email channel), feedback, tickets
-- [ ] Tests + E2E steps 15–16
+- [x] Models: Conversation (DIRECT/SECTION/SUPPORT with type-key CHECK), ConversationParticipant (read pointer, mute, left), Message (generated `search_vector` + GIN), MessageAttachment, DiscussionThread/Post, AnnouncementAudience (all audience types, `target_value`, `role_filter`, target CHECK), AnnouncementRead, NotificationPreference, EmailLog, Feedback/FeedbackResponse, SupportTicket/TicketResponse/TicketEvent/TicketAttachment (number format and resolution CHECKs)
+- [x] Messaging: contact rules (FR-COMM-002), direct conversations, a support conversation per user answered by administrators of their department, section conversations synced with the roster (instructors moderate, announcement-only mode), attachments, 15-minute edits, soft delete, unread counts, full-text search, Socket.IO delivery (`message:*`, `conversation:read`, `notification:new`)
+- [x] Discussions per section: questions and discussions, replies, pin, lock, accepted answer, reply notifications
+- [x] Announcements to every audience with scoped targeting (FR-COMM-011), scheduling on the `announcements` queue (rescheduled on edit; a minute sweep catches lost jobs), one-time fan-out, expiry, pin, read tracking, per-user feed
+- [x] Notification preferences per category × channel with mandatory channels; email delivery for opted-in categories (urgent announcements always) through the email queue with an `email_logs` record per message
+- [x] Feedback (categories, priority, status workflow, assignee, responses, anonymity) and support tickets (TCK-YYYY-000123 numbers, attachments, public replies and internal notes, status history, reopen within 7 days, hourly auto-close)
+- [x] Web: real-time bridge (socket.io-client; cache invalidation and toasts), messages page with header unread badge, discussions (boards, thread page, workspace and course-page tabs), announcements feed for every portal plus admin composer with audience builder and scheduling, notification preferences on the account page, feedback and support pages for students and faculty, feedback and ticket queues for administrators
+- [x] Seed: section chat, an answered discussion question, university/department/year announcements, feedback and two tickets for the dev accounts
+- [x] Tests: API +10 (415), shared +4 (45), web +3 (58), E2E +4 (48 runs: journey steps 15–16 and the support inbox, each with a separate administrator session)
+
+**Verified manually (browser):** section chat receiving an instructor's message in real time and replying, announcement feed with read state, support ticket list and resolved-ticket detail with reopen window.
+
+**Deferred, by design:**
+- Email digest mode (FR-NOTIF-006, priority S) — TD-020.
+- Group conversations (the data model allows them; no UI or rules yet).
+- Notifying students when an active session's dates move (BR-020) still waits on a session-change workflow (Phase 10 calendar work).
 
 ## Phase 10 — Academic management
 - [ ] Timetables (faculty, classroom views), classroom availability
@@ -261,6 +272,8 @@ _None known._ (Fixed in Phase 6: timestamps shifted by the database server's tim
 | TD-016 | Idempotency is backed by the registration row (`student_id`, `idempotency_key`), so a replayed *failed* attempt is re-evaluated instead of returning the first error | Cache full responses in Redis for 24 h if clients need exact replays of failures |
 | TD-017 | Waitlist reorder (FR-ADMIN-023) and the conflicts view (FR-ADMIN-024) | Add with the admin dashboard work (Phase 11) |
 | TD-018 | Material ordering is by `position` within a folder but the UI has no drag-to-reorder yet | Add reordering with the student portal's materials view (Phase 8) |
+| TD-020 | No daily email digest (FR-NOTIF-006, S); emails are sent per notification | Add a digest preference and a daily job batching opted-in categories |
+| TD-021 | Section conversation membership is synced when the conversation list or the conversation is opened, or someone posts — not on every registration change | Event-driven sync from registration changes if read receipts per member become important |
 | TD-019 | A student may register for a course they are currently taking in another (unfinished) session; FR-REG-007 only blocks courses already passed | Decide with the registrar whether to block concurrent repeats (Phase 12 review) |
 | TD-013 | Section meetings run for the whole session (no per-meeting start/end dates) | Add `starts_on`/`ends_on` if half-session courses are needed |
 | TD-014 | Syllabus is rich text only; no syllabus file attachment yet | Add with course materials (Phase 7, file service exists) |
@@ -369,7 +382,18 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | GPA uses every graded attempt; repeat policy (latest/best) is not configurable yet | FR-ACAD-008 lists the policy as configurable; it arrives with grading settings (Phase 10) |
 | Testing Library's async wait is 4 s in web tests | Lazy route chunks occasionally exceeded the 1 s default under parallel load |
 
+## Phase 9 implementation decisions
+| Decision | Reason |
+|---|---|
+| Messages are plain text rendered with line breaks and http(s) links, never as HTML | Meets "sanitized markdown subset" safely; no HTML sanitiser to keep in sync |
+| Students reach administrators through one support conversation per student, visible to administrators whose `message:moderate` grant covers the student's department | FR-COMM-002 "shared admin conversation" without exposing every admin's inbox |
+| Direct and support messages notify a recipient only when the conversation goes from read to unread | One notification per burst instead of one per message |
+| Announcement fan-out always runs on the queue, also for "publish now" | Large audiences (all students) never block the request; one code path for scheduled and immediate |
+| Urgent announcements are emailed regardless of preferences | Urgent notices are the case email exists for |
+| Feedback and tickets are routed to the submitter's department; university-wide grants see everything | Department administrators triage their own people (FR-COMM-011 scope model) |
+
 ## Changelog
+- 2026-11-21 — Phase 9 complete: messaging with real-time delivery, discussions, announcements to every audience with scheduling and read tracking, notification preferences and email log, feedback and support tickets; 518 unit/integration + 48 E2E runs.
 - 2026-11-20 — Phase 8 complete: student portal (catalog, course page with eligibility and registration, registrations, planner, timetable with iCal, progress, history, announcements, course pages); 457 unit/integration + 44 E2E runs.
 - 2026-11-20 — Phase 7 complete: faculty portal (dashboard, assignments, workspace, roster and export, materials with uploads, section announcements); 441 unit/integration + 42 E2E runs.
 - 2026-11-20 — Phase 6 complete: registration engine with eligibility, approvals, overrides, waitlists and offers, notifications, records and planner API, admin registration UI, seeded history and open registration; 414 unit/integration + 40 E2E runs. Fixed a database time-zone shift affecting every stored timestamp on non-UTC database servers.

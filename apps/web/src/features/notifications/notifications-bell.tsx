@@ -18,7 +18,7 @@ interface Notice {
   createdAt: string;
 }
 
-/** Unread badge and recent notifications (FR-NOTIF-001..003). Real-time push arrives with Phase 9. */
+/** Unread badge and recent notifications (FR-NOTIF-001..003); pushes arrive through the realtime bridge. */
 export function NotificationsBell() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ export function NotificationsBell() {
   const count = useQuery({
     queryKey: ['notifications', 'unread'],
     queryFn: () => apiGet<{ unread: number }>('/notifications/unread-count'),
-    refetchInterval: 60_000,
+    refetchInterval: 300_000,
   });
   const list = useQuery({
     queryKey: ['notifications', 'recent'],

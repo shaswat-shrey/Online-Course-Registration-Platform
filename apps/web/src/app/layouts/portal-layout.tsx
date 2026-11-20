@@ -7,11 +7,13 @@ import { AppSidebar } from '@/components/navigation/app-sidebar';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
 import { PortalSwitcher } from '@/components/navigation/portal-switcher';
 import { UserMenu } from '@/components/navigation/user-menu';
+import { MessagesButton, RealtimeBridge } from '@/features/communication/realtime';
 import { NotificationsBell } from '@/features/notifications/notifications-bell';
 
 export function PortalLayout({ portal }: { portal: Portal }) {
   return (
     <SidebarProvider>
+      <RealtimeBridge />
       <AppSidebar portal={portal} />
       <SidebarInset className="min-w-0">
         <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background/90 px-3 backdrop-blur sm:px-4">
@@ -21,6 +23,7 @@ export function PortalLayout({ portal }: { portal: Portal }) {
             <Breadcrumbs />
           </div>
           <PortalSwitcher portal={portal} />
+          <MessagesButton portal={portal} />
           <NotificationsBell />
           <ThemeToggle />
           <UserMenu portal={portal} />

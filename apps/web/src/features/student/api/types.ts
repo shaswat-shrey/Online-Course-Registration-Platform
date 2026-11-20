@@ -108,7 +108,9 @@ export interface StudentAnnouncement {
   pinned: boolean;
   publishedAt: string;
   author: string;
+  read: boolean;
   sections: Array<{ id: string; label: string }>;
+  audiences: Array<{ label: string }>;
 }
 
 export interface TimetableEntry {

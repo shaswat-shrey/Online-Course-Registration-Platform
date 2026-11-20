@@ -1,3 +1,4 @@
+import type { AudienceRole, AudienceType } from '@ucrams/shared';
 import type { Section } from '@/features/courses/api/types';
 
 export type TeachingSection = Section & { myRole: 'PRIMARY' | 'SECONDARY' | 'TA' };
@@ -105,7 +106,19 @@ export interface Announcement {
   pinned: boolean;
   publishedAt: string;
   expiresAt: string | null;
+  scheduled: boolean;
+  expired: boolean;
   author: string;
   mine: boolean;
+  canManage: boolean;
+  read: boolean;
+  readCount: number | null;
+  audiences: Array<{
+    type: AudienceType;
+    targetId: string | null;
+    targetValue: number | null;
+    roleFilter: AudienceRole;
+    label: string;
+  }>;
   sections: Array<{ id: string; label: string }>;
 }

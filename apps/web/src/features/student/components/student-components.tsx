@@ -305,8 +305,8 @@ export function AnnouncementFeed({
               )}
             </header>
             <p className="mb-2 text-xs text-muted-foreground">
-              {a.sections.map((s) => s.label).join(', ')} · {a.author} ·{' '}
-              {formatRelative(a.publishedAt)}
+              {(a.sections.length ? a.sections : a.audiences).map((s) => s.label).join(', ')} ·{' '}
+              {a.author} · {formatRelative(a.publishedAt)}
             </p>
             <p className="text-sm whitespace-pre-line">{a.body}</p>
           </article>

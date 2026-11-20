@@ -116,6 +116,9 @@ Message lists and notifications use cursor pagination (`cursor`, `limit`) and re
 | `PREREQUISITE_CYCLE` | 422 | |
 | `FILE_TYPE_NOT_ALLOWED` / `FILE_TOO_LARGE` / `FILE_NOT_READY` | 422 | |
 | `MESSAGING_NOT_ALLOWED` | 403 | Conversation rule |
+| `AUDIENCE_NOT_ALLOWED` | 403 | Announcement audience outside the author's scope (FR-COMM-011) |
+| `EDIT_WINDOW_PASSED` | 422 | Messages are editable for 15 minutes |
+| `THREAD_LOCKED` | 422 | |
 | `RATE_LIMITED` | 429 | |
 | `INTERNAL_ERROR` | 500 | |
 
@@ -152,13 +155,13 @@ The table lists the main endpoints per group. Standard CRUD = `GET /x` (list), `
 | **Assessments** | CRUD `/course-sections/{id}/assessments`, `PUT /assessments/{id}/scores`, `POST /assessments/{id}/publish`, `GET /assessments/me?sectionId=` |
 | **Grades** | `GET/PUT /course-sections/{id}/final-grades`, `POST /course-sections/{id}/final-grades/submit|approve|post`, `POST /academic-records/{id}/grade-change` |
 | **Academic records** | ✅ `GET /students/me/progress`, `GET /students/me/history` (session GPA, CGPA), `GET /students/me/announcements`, `GET /academic-records/me`, `GET /students/{id}/records` (with CGPA). Later: `POST /students/{id}/records` (transfer/exemption), transcript (Phase 10) |
-| **Announcements** | ✅ (sections) `POST /announcements` (`sectionIds[]`), `GET /announcements/mine`, `PATCH/DELETE /announcements/{id}`. Later (Phase 9): other audiences, scheduling, `GET /announcements/feed`, read tracking |
-| **Messaging** | `GET /conversations`, `POST /conversations` (direct), `GET /conversations/{id}`, `GET /conversations/{id}/messages?cursor=`, `POST /conversations/{id}/messages`, `PATCH /messages/{id}`, `DELETE /messages/{id}`, `POST /conversations/{id}/read`, `GET /conversations/unread-count`, `GET /messages/search?q=`, `GET /messaging/contacts` (who the user may message) |
-| **Discussions** | `GET/POST /course-sections/{id}/threads`, `GET /threads/{id}`, `POST /threads/{id}/posts`, `PATCH /threads/{id}` (pin/lock), `POST /posts/{id}/accept` |
-| **Notifications** | ✅ `GET /notifications?unread=` (paged), `GET /notifications/unread-count`, `POST /notifications/read` (ids or all). Later: preferences (Phase 9) |
-| **Feedback** | CRUD `/feedback` (scoped), `POST /feedback/{id}/responses`, `POST /feedback/{id}/assign`, `POST /feedback/{id}/status` |
-| **Support tickets** | CRUD `/tickets`, `POST /tickets/{id}/responses`, `POST /tickets/{id}/assign`, `POST /tickets/{id}/status`, `GET /tickets/{id}/events` |
-| **Files / documents** | ✅ `POST /files/upload-intents` (contexts `AVATAR`, `MATERIAL`), `POST /files/{id}/complete`, `PUT/DELETE /me/avatar`, `PATCH/DELETE /materials/{id}`, `GET /materials/{id}/download` (signed link after the membership check); later: `/documents` |
+| **Announcements** | ✅ `POST /announcements` (faculty `sectionIds[]` or `audiences[]` of `ALL_USERS/ALL_STUDENTS/ALL_FACULTY/ALL_ADMINS/USER/SCHOOL/DEPARTMENT/PROGRAM/SPECIALIZATION/COURSE/SECTION/YEAR_OF_STUDY` with `roleFilter`; `publishAt` schedules, `expiresAt`), `GET /announcements/feed?unread=`, `GET /announcements/manage`, `GET /announcements/mine`, `GET/PATCH/DELETE /announcements/{id}` (changing `publishAt` reschedules), `POST /announcements/{id}/read`, `GET /course-sections/{id}/announcements` |
+| **Messaging** | ✅ `GET /conversations?box=mine|support`, `GET /conversations/unread-count`, `GET /conversations/contacts?q=` (who the user may message), `GET /conversations/search?q=`, `POST /conversations/direct`, `POST /conversations/support`, `GET/PATCH /conversations/{id}` (`muted`, `announcementOnly`), `POST /conversations/{id}/read`, `GET /conversations/{id}/messages?before=&limit=`, `POST /conversations/{id}/messages` (`body`, `fileIds[]`), `PATCH/DELETE /messages/{id}`, `GET /messages/{id}/attachments/{fileId}`. Socket.IO events to `user:{id}`: `message:new`, `message:updated`, `message:deleted`, `conversation:read`, `notification:new` |
+| **Discussions** | ✅ `GET /discussions/boards`, `GET/POST /course-sections/{id}/discussions` (`q`, `type`, `unanswered`), `GET/PATCH/DELETE /discussions/{id}` (moderators: `pinned`, `locked`, `answerPostId`), `POST /discussions/{id}/posts`, `DELETE /discussion-posts/{id}` |
+| **Notifications** | ✅ `GET /notifications?unread=` (paged), `GET /notifications/unread-count`, `POST /notifications/read` (ids or all), `GET/PUT /notifications/preferences` (mandatory channels cannot be switched off) |
+| **Feedback** | ✅ `POST /feedback`, `GET /feedback/mine`, `GET /feedback` (scoped queue; `status`, `category`, `assignedToMe`), `GET /feedback/assignees?departmentId=`, `GET/PATCH /feedback/{id}` (status, priority, assignee, resolution note), `POST /feedback/{id}/responses` |
+| **Support tickets** | ✅ `POST /tickets` (`fileIds[]`), `GET /tickets/mine`, `GET /tickets` (scoped queue; `status=ACTIVE|…`, `category`, `assignedToMe`, `q`), `GET /tickets/assignees`, `GET/PATCH /tickets/{id}` (status, priority, assignee; detail includes responses and status history), `POST /tickets/{id}/responses` (`internal`, `status`, `fileIds[]`), `POST /tickets/{id}/reopen`, `GET /tickets/{id}/attachments/{fileId}` |
+| **Files / documents** | ✅ `POST /files/upload-intents` (contexts `AVATAR`, `MATERIAL`, `MESSAGE`, `TICKET`), `POST /files/{id}/complete`, `PUT/DELETE /me/avatar`, `PATCH/DELETE /materials/{id}`, `GET /materials/{id}/download` (signed link after the membership check); later: `/documents` |
 | **Search** | `GET /search?q=&types=course,department,program,specialization,faculty,student` |
 | **Dashboards** | ✅ `GET /faculty/me/dashboard`, `GET /students/me/dashboard`. Later: `GET /dashboards/admin` (Phase 11) |
 | **Reports** | `GET /reports` (catalogue), `GET /reports/{reportKey}?filters…`, `POST /reports/{reportKey}/export {format}` → ExportJob, `GET /exports/{id}` |

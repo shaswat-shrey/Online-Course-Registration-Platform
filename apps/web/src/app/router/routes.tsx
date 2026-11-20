@@ -28,6 +28,58 @@ const account = lazyPage(async () => ({
 
 const crumb = (label: string): RouteHandle => ({ crumb: label });
 
+/** Communication pages are shared by the portals; the portal decides links and labels. */
+const comm = (load: () => Promise<object>, name: string, portal: Portal) =>
+  lazyPage(async () => {
+    const Page = (await load())[name as keyof object] as React.ComponentType<{ portal: Portal }>;
+    return { default: () => <Page portal={portal} /> };
+  });
+const messagesPage = () => import('@/features/communication/pages/messages-page');
+const discussionPages = () => import('@/features/communication/pages/discussion-pages');
+const casePages = () => import('@/features/communication/pages/case-pages');
+const announcementPages = () => import('@/features/communication/pages/announcement-pages');
+
+/** Messaging, discussions, feedback and support for students and faculty (Phase 9). */
+const memberCommunication = (portal: 'faculty' | 'student'): RouteObject[] => [
+  { path: 'messages', handle: crumb('Messages'), lazy: comm(messagesPage, 'MessagesPage', portal) },
+  {
+    path: 'discussions',
+    handle: crumb('Discussions'),
+    children: [
+      { index: true, lazy: comm(discussionPages, 'DiscussionsPage', portal) },
+      {
+        path: ':threadId',
+        handle: crumb('Thread'),
+        lazy: comm(discussionPages, 'ThreadPage', portal),
+      },
+    ],
+  },
+  {
+    path: 'feedback',
+    handle: crumb('Feedback'),
+    children: [
+      { index: true, lazy: comm(casePages, 'MyFeedbackPage', portal) },
+      {
+        path: ':feedbackId',
+        handle: crumb('Feedback'),
+        lazy: comm(casePages, 'FeedbackDetailPage', portal),
+      },
+    ],
+  },
+  {
+    path: 'support',
+    handle: crumb('Support'),
+    children: [
+      { index: true, lazy: comm(casePages, 'MyTicketsPage', portal) },
+      {
+        path: ':ticketId',
+        handle: crumb('Ticket'),
+        lazy: comm(casePages, 'TicketDetailPage', portal),
+      },
+    ],
+  },
+];
+
 function portalRoutes(portal: Portal, label: string, extra: RouteObject[] = []): RouteObject {
   return {
     path: portal,
@@ -453,8 +505,53 @@ export const routes: RouteObject[] = [
                 },
               ],
             },
+            {
+              path: 'messages',
+              handle: crumb('Messages'),
+              lazy: comm(messagesPage, 'MessagesPage', 'admin'),
+            },
+            {
+              path: 'announcements',
+              handle: crumb('Announcements'),
+              lazy: comm(announcementPages, 'AdminAnnouncementsPage', 'admin'),
+            },
+            {
+              element: <RequirePermission permission="feedback:manage" />,
+              children: [
+                {
+                  path: 'feedback',
+                  handle: crumb('Feedback'),
+                  children: [
+                    { index: true, lazy: comm(casePages, 'FeedbackQueuePage', 'admin') },
+                    {
+                      path: ':feedbackId',
+                      handle: crumb('Feedback'),
+                      lazy: comm(casePages, 'FeedbackDetailPage', 'admin'),
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              element: <RequirePermission permission="ticket:manage" />,
+              children: [
+                {
+                  path: 'tickets',
+                  handle: crumb('Support tickets'),
+                  children: [
+                    { index: true, lazy: comm(casePages, 'TicketQueuePage', 'admin') },
+                    {
+                      path: ':ticketId',
+                      handle: crumb('Ticket'),
+                      lazy: comm(casePages, 'TicketDetailPage', 'admin'),
+                    },
+                  ],
+                },
+              ],
+            },
           ]),
           portalRoutes('faculty', 'Faculty', [
+            ...memberCommunication('faculty'),
             {
               path: 'teaching',
               handle: crumb('My teaching'),
@@ -488,6 +585,7 @@ export const routes: RouteObject[] = [
             },
           ]),
           portalRoutes('student', 'Student', [
+            ...memberCommunication('student'),
             {
               path: 'catalog',
               handle: crumb('Catalog'),
@@ -542,8 +640,7 @@ export const routes: RouteObject[] = [
               path: 'announcements',
               handle: crumb('Announcements'),
               lazy: lazyPage(async () => ({
-                default: (await import('@/features/student/pages/student-pages'))
-                  .StudentAnnouncementsPage,
+                default: (await announcementPages()).AnnouncementsPage,
               })),
             },
             {
