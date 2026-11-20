@@ -88,3 +88,68 @@ export function refreshRequest(app: Express, s: Pick<TestSession, 'cookie' | 'cs
 export const bearer = (s: { accessToken: string }) => ({
   Authorization: `Bearer ${s.accessToken}`,
 });
+
+// ----- structure ------------------------------------------------------------
+
+let structureCounter = 0;
+const nextCode = (prefix: string) => `${prefix}${++structureCounter}`;
+
+export async function createSchool(overrides: { status?: 'ACTIVE' | 'INACTIVE' } = {}) {
+  return prisma.school.create({
+    data: { code: nextCode('SCH'), name: `School ${structureCounter}`, ...overrides },
+  });
+}
+
+export async function createDepartment(
+  schoolId?: string,
+  overrides: { status?: 'ACTIVE' | 'INACTIVE' } = {},
+) {
+  const school = schoolId ?? (await createSchool()).id;
+  return prisma.department.create({
+    data: {
+      code: nextCode('DEP'),
+      name: `Department ${structureCounter}`,
+      schoolId: school,
+      ...overrides,
+    },
+  });
+}
+
+export async function createDegree(overrides: { status?: 'ACTIVE' | 'INACTIVE' } = {}) {
+  return prisma.degree.create({
+    data: {
+      code: nextCode('DEG'),
+      name: `Degree ${structureCounter}`,
+      level: 'UNDERGRADUATE',
+      ...overrides,
+    },
+  });
+}
+
+export async function createProgram(
+  departmentId: string,
+  overrides: { totalCredits?: number } = {},
+) {
+  const degree = await createDegree();
+  return prisma.program.create({
+    data: {
+      code: nextCode('PRG'),
+      name: `Program ${structureCounter}`,
+      degreeId: degree.id,
+      departmentId,
+      durationYears: 4,
+      sessionCount: 8,
+      totalCredits: overrides.totalCredits ?? 160,
+    },
+  });
+}
+
+/** Adds a scoped role assignment to an existing user. */
+export async function grantScoped(
+  userId: string,
+  role: RoleKey,
+  scope: { scopeType: 'SCHOOL' | 'DEPARTMENT'; scopeId: string },
+) {
+  const r = await prisma.role.findUniqueOrThrow({ where: { key: role } });
+  await prisma.userRole.create({ data: { userId, roleId: r.id, ...scope } });
+}

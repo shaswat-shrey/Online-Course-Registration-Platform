@@ -10,6 +10,7 @@ import { closeQueues } from '../../src/infrastructure/queues/queues.js';
 import { hashPassword } from '../../src/modules/auth/password.js';
 import { invalidateAuthState } from '../../src/modules/authz/grants.service.js';
 import { syncRbacCatalog } from '../../src/modules/rbac/rbac.bootstrap.js';
+import { seedStructure } from './structure.js';
 
 async function seedUniversity() {
   const existing = await prisma.university.findFirst({ orderBy: { createdAt: 'asc' } });
@@ -29,11 +30,15 @@ async function seedUniversity() {
   console.warn('Created university profile.');
 }
 
-/**
- * Development accounts, one per role (README "Development credentials").
- * The department administrator account is added with departments (structure seed).
- */
-const DEV_ACCOUNTS = [
+/** Development accounts, one per role (README "Development credentials"). */
+const DEV_ACCOUNTS: ReadonlyArray<{
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: RoleKey;
+  /** Department code for DEPARTMENT-scoped roles. */
+  department?: string;
+}> = [
   {
     email: 'superadmin@ucrams.local',
     firstName: 'Sam',
@@ -53,6 +58,13 @@ const DEV_ACCOUNTS = [
     role: RoleKey.ACADEMIC_ADMIN,
   },
   {
+    email: 'cs.admin@ucrams.local',
+    firstName: 'Dev',
+    lastName: 'Deptadmin',
+    role: RoleKey.DEPARTMENT_ADMIN,
+    department: 'CS',
+  },
+  {
     email: 'faculty.cs@ucrams.local',
     firstName: 'Farhan',
     lastName: 'Faculty',
@@ -64,7 +76,7 @@ const DEV_ACCOUNTS = [
     lastName: 'Student',
     role: RoleKey.STUDENT,
   },
-] as const;
+];
 
 async function seedDevAccounts() {
   const password = process.env.SEED_DEV_PASSWORD;
@@ -91,13 +103,19 @@ async function seedDevAccounts() {
       });
       console.warn(`Created ${account.email} (${account.role}).`);
     }
+    const scope = account.department
+      ? {
+          scopeType: 'DEPARTMENT' as const,
+          scopeId: (
+            await prisma.department.findUniqueOrThrow({ where: { code: account.department } })
+          ).id,
+        }
+      : { scopeType: 'GLOBAL' as const, scopeId: null };
     const hasRole = await prisma.userRole.findFirst({
-      where: { userId: user.id, roleId: role.id, scopeType: 'GLOBAL' },
+      where: { userId: user.id, roleId: role.id, ...scope },
     });
     if (!hasRole) {
-      await prisma.userRole.create({
-        data: { userId: user.id, roleId: role.id, scopeType: 'GLOBAL' },
-      });
+      await prisma.userRole.create({ data: { userId: user.id, roleId: role.id, ...scope } });
       await invalidateAuthState([user.id]);
     }
   }
@@ -114,6 +132,10 @@ async function main() {
     `RBAC catalogue synced: ${rbac.permissions} permissions, ${rbac.rolesCreated} roles created.`,
   );
   await seedUniversity();
+  const structure = await seedStructure();
+  console.warn(
+    `Structure seeded (${structure.departments.size} departments, ${structure.programsCreated} programs created).`,
+  );
   await seedDevAccounts();
 }
 

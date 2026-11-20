@@ -102,15 +102,15 @@ model User {
 }
 
 model Role {
-  id          String   @id @default(uuid(7)) @db.Uuid
-  key         String   @unique @db.VarChar(50)
-  name        String   @db.VarChar(100)
-  description String?  @db.VarChar(500)
+  id          String        @id @default(uuid(7)) @db.Uuid
+  key         String        @unique @db.VarChar(50)
+  name        String        @db.VarChar(100)
+  description String?       @db.VarChar(500)
   /// System roles cannot be deleted; only SUPER_ADMIN may edit their permissions.
   isSystem    Boolean       @default(false) @map("is_system")
   scopeMode   RoleScopeMode @default(ORGANIZATIONAL) @map("scope_mode")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   permissions RolePermission[]
   users       UserRole[]
@@ -251,4 +251,356 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@index([action, createdAt])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// University structure (DATABASE.md §3.3). Heads/deans (faculty members) and
+// requirement course lists are added with the faculty and course modules.
+// ---------------------------------------------------------------------------
+
+enum EntityStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum DegreeLevel {
+  DIPLOMA
+  UNDERGRADUATE
+  POSTGRADUATE
+  DOCTORAL
+}
+
+enum CourseCategory {
+  CORE
+  ELECTIVE
+  GENERAL_EDUCATION
+  LABORATORY
+  SEMINAR
+  RESEARCH
+  PROJECT
+  INTERNSHIP
+  PRACTICAL
+}
+
+enum RequirementKind {
+  /// Every listed course is required (course list added with the course module).
+  ALL_OF
+  /// Earn min_credits from the listed courses.
+  CREDITS_FROM_LIST
+  /// Earn min_credits from courses of one category.
+  CREDITS_FROM_CATEGORY
+  /// Earn min_credits from any course (open electives).
+  CREDITS_ANY
+}
+
+model Campus {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  code      String       @unique @db.VarChar(20)
+  name      String       @db.VarChar(150)
+  address   String?      @db.VarChar(500)
+  city      String?      @db.VarChar(100)
+  status    EntityStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  schools     School[]
+  departments Department[]
+
+  @@map("campuses")
+}
+
+/// "Faculty / School" organisational unit (ADR-003).
+model School {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  code         String       @unique @db.VarChar(20)
+  name         String       @db.VarChar(150)
+  description  String?      @db.VarChar(2000)
+  campusId     String?      @map("campus_id") @db.Uuid
+  contactEmail String?      @map("contact_email") @db.VarChar(255)
+  contactPhone String?      @map("contact_phone") @db.VarChar(50)
+  website      String?      @db.VarChar(255)
+  status       EntityStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  campus      Campus?      @relation(fields: [campusId], references: [id])
+  departments Department[]
+
+  @@index([status])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "schools_name_trgm")
+  @@map("schools")
+}
+
+model Department {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  code           String       @unique @db.VarChar(20)
+  name           String       @db.VarChar(150)
+  description    String?      @db.VarChar(2000)
+  schoolId       String       @map("school_id") @db.Uuid
+  campusId       String?      @map("campus_id") @db.Uuid
+  contactEmail   String?      @map("contact_email") @db.VarChar(255)
+  contactPhone   String?      @map("contact_phone") @db.VarChar(50)
+  officeLocation String?      @map("office_location") @db.VarChar(200)
+  status         EntityStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  school   School    @relation(fields: [schoolId], references: [id])
+  campus   Campus?   @relation(fields: [campusId], references: [id])
+  programs Program[]
+
+  @@index([schoolId, status])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "departments_name_trgm")
+  @@map("departments")
+}
+
+/// Credential type (B.Tech, B.Sc., LL.B., Ph.D.).
+model Degree {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  code        String       @unique @db.VarChar(20)
+  name        String       @db.VarChar(150)
+  level       DegreeLevel
+  description String?      @db.VarChar(2000)
+  status      EntityStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  programs Program[]
+
+  @@map("degrees")
+}
+
+/// A degree offered by a department, e.g. "B.Tech in Computer Science".
+model Program {
+  id                 String       @id @default(uuid(7)) @db.Uuid
+  code               String       @unique @db.VarChar(30)
+  name               String       @db.VarChar(200)
+  description        String?      @db.VarChar(2000)
+  degreeId           String       @map("degree_id") @db.Uuid
+  departmentId       String       @map("department_id") @db.Uuid
+  durationYears      Decimal      @map("duration_years") @db.Decimal(3, 1)
+  sessionCount       Int          @map("session_count") @db.SmallInt
+  totalCredits       Decimal      @map("total_credits") @db.Decimal(5, 1)
+  minCoreCredits     Decimal?     @map("min_core_credits") @db.Decimal(5, 1)
+  minElectiveCredits Decimal?     @map("min_elective_credits") @db.Decimal(5, 1)
+  status             EntityStatus @default(ACTIVE)
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  degree            Degree             @relation(fields: [degreeId], references: [id])
+  department        Department         @relation(fields: [departmentId], references: [id])
+  specializations   Specialization[]
+  requirementGroups RequirementGroup[]
+  priorityWindows   PriorityWindow[]
+
+  @@index([departmentId, status])
+  @@index([degreeId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "programs_name_trgm")
+  @@map("programs")
+}
+
+model Specialization {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  programId         String       @map("program_id") @db.Uuid
+  code              String       @db.VarChar(30)
+  name              String       @db.VarChar(200)
+  description       String?      @db.VarChar(2000)
+  /// Credits required on top of the program's own requirements.
+  additionalCredits Decimal?     @map("additional_credits") @db.Decimal(5, 1)
+  status            EntityStatus @default(ACTIVE)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  program           Program            @relation(fields: [programId], references: [id])
+  requirementGroups RequirementGroup[]
+
+  @@unique([programId, code])
+  @@index([programId, status])
+  @@map("specializations")
+}
+
+/// Requirement block of a program or a specialization (exactly one, CHECK in SQL).
+model RequirementGroup {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  programId        String?         @map("program_id") @db.Uuid
+  specializationId String?         @map("specialization_id") @db.Uuid
+  name             String          @db.VarChar(150)
+  description      String?         @db.VarChar(1000)
+  kind             RequirementKind
+  minCredits       Decimal?        @map("min_credits") @db.Decimal(5, 1)
+  category         CourseCategory?
+  position         Int             @default(0) @db.SmallInt
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  program        Program?        @relation(fields: [programId], references: [id], onDelete: Cascade)
+  specialization Specialization? @relation(fields: [specializationId], references: [id], onDelete: Cascade)
+
+  @@index([programId])
+  @@index([specializationId])
+  @@map("requirement_groups")
+}
+
+// ---------------------------------------------------------------------------
+// Academic calendar (DATABASE.md §3.4)
+// ---------------------------------------------------------------------------
+
+enum SessionType {
+  FALL
+  SPRING
+  SUMMER
+  WINTER
+  TRIMESTER_1
+  TRIMESTER_2
+  TRIMESTER_3
+  CUSTOM
+}
+
+enum SessionStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ApprovalMode {
+  NONE
+  ALL
+  CROSS_DEPARTMENT
+  LATE_ONLY
+}
+
+enum WaitlistPromotionMode {
+  AUTO_ENROLL
+  OFFER
+}
+
+model AcademicYear {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  label     String   @unique @db.VarChar(20)
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions AcademicSession[]
+
+  @@map("academic_years")
+}
+
+/// A term/semester within an academic year.
+model AcademicSession {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  academicYearId String        @map("academic_year_id") @db.Uuid
+  code           String        @unique @db.VarChar(30)
+  name           String        @db.VarChar(100)
+  type           SessionType
+  startDate      DateTime      @map("start_date") @db.Date
+  endDate        DateTime      @map("end_date") @db.Date
+  status         SessionStatus @default(PLANNED)
+  /// At most one current session per type (partial unique index in SQL).
+  isCurrent      Boolean       @default(false) @map("is_current")
+  gradingScaleId String?       @map("grading_scale_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id])
+  gradingScale       GradingScale?       @relation(fields: [gradingScaleId], references: [id])
+  policy             SessionPolicy?
+  registrationPeriod RegistrationPeriod?
+
+  @@index([academicYearId])
+  @@index([status])
+  @@map("academic_sessions")
+}
+
+/// Registration rules for one session (FR-CAL-005).
+model SessionPolicy {
+  sessionId                  String                @id @map("session_id") @db.Uuid
+  minCredits                 Decimal               @default(0) @map("min_credits") @db.Decimal(4, 1)
+  maxCredits                 Decimal               @map("max_credits") @db.Decimal(4, 1)
+  maxCreditsWithOverride     Decimal?              @map("max_credits_with_override") @db.Decimal(4, 1)
+  approvalMode               ApprovalMode          @default(NONE) @map("approval_mode")
+  waitlistEnabled            Boolean               @default(true) @map("waitlist_enabled")
+  waitlistMaxPerSection      Int?                  @map("waitlist_max_per_section")
+  promotionMode              WaitlistPromotionMode @default(AUTO_ENROLL) @map("promotion_mode")
+  offerWindowHours           Int                   @default(24) @map("offer_window_hours")
+  countWaitlistInCredits     Boolean               @default(false) @map("count_waitlist_in_credits")
+  allowInProgressPrereqs     Boolean               @default(true) @map("allow_in_progress_prereqs")
+  withdrawalRequiresApproval Boolean               @default(false) @map("withdrawal_requires_approval")
+  updatedAt                  DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  session AcademicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("session_policies")
+}
+
+/// Registration windows for one session (FR-CAL-003). Instants are UTC.
+model RegistrationPeriod {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  sessionId          String    @unique @map("session_id") @db.Uuid
+  opensAt            DateTime  @map("opens_at") @db.Timestamptz(3)
+  closesAt           DateTime  @map("closes_at") @db.Timestamptz(3)
+  /// Optional late-registration window after closesAt (registrations need approval).
+  lateClosesAt       DateTime? @map("late_closes_at") @db.Timestamptz(3)
+  addDropDeadline    DateTime  @map("add_drop_deadline") @db.Timestamptz(3)
+  withdrawalDeadline DateTime  @map("withdrawal_deadline") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  session         AcademicSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  priorityWindows PriorityWindow[]
+
+  @@map("registration_periods")
+}
+
+/// Earlier opening for a cohort (FR-CAL-004). At least one criterion is set (CHECK).
+model PriorityWindow {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  periodId    String   @map("period_id") @db.Uuid
+  name        String   @db.VarChar(100)
+  opensAt     DateTime @map("opens_at") @db.Timestamptz(3)
+  programId   String?  @map("program_id") @db.Uuid
+  yearOfStudy Int?     @map("year_of_study") @db.SmallInt
+  cohort      String?  @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  period  RegistrationPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  program Program?           @relation(fields: [programId], references: [id])
+
+  @@index([periodId])
+  @@map("priority_windows")
+}
+
+/// Configurable grading scale (FR-ACAD-005). No default policy is assumed.
+model GradingScale {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  name        String       @unique @db.VarChar(100)
+  description String?      @db.VarChar(1000)
+  status      EntityStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  entries  GradeScaleEntry[]
+  sessions AcademicSession[]
+
+  @@map("grading_scales")
+}
+
+model GradeScaleEntry {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  scaleId     String   @map("scale_id") @db.Uuid
+  letter      String   @db.VarChar(5)
+  minPercent  Decimal  @map("min_percent") @db.Decimal(5, 2)
+  /// Null when the scale has no grade points (pass/fail scales): GPA is not computed.
+  gradePoints Decimal? @map("grade_points") @db.Decimal(4, 2)
+  isPassing   Boolean  @map("is_passing")
+  countsInGpa Boolean  @default(true) @map("counts_in_gpa")
+  position    Int      @db.SmallInt
+
+  scale GradingScale @relation(fields: [scaleId], references: [id], onDelete: Cascade)
+
+  @@unique([scaleId, letter])
+  @@map("grade_scale_entries")
 }

@@ -11,7 +11,13 @@ import { rateLimit } from './common/middleware/rate-limit.js';
 import { requestId } from './common/middleware/request-id.js';
 import { storage, LocalStorageService } from './infrastructure/storage/index.js';
 import { createLocalStorageRouter } from './infrastructure/storage/local-storage.routes.js';
+import { calendarRouter } from './modules/academic-sessions/calendar.routes.js';
 import { auditRouter } from './modules/audit/audit.routes.js';
+import { degreesRouter } from './modules/degrees/degrees.routes.js';
+import { departmentsRouter } from './modules/departments/departments.routes.js';
+import { gradingScalesRouter } from './modules/grading-scales/grading-scales.routes.js';
+import { programsRouter } from './modules/programs/programs.routes.js';
+import { schoolsRouter } from './modules/schools/schools.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { rbacRouter } from './modules/rbac/rbac.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
@@ -71,6 +77,12 @@ export function createApp(): Express {
   api.use(authRouter);
   api.use(rbacRouter);
   api.use(auditRouter);
+  api.use(schoolsRouter);
+  api.use(departmentsRouter);
+  api.use(degreesRouter);
+  api.use(programsRouter);
+  api.use(calendarRouter);
+  api.use(gradingScalesRouter);
   app.use(API_PREFIX, api);
 
   if (env.API_DOCS_ENABLED) {
