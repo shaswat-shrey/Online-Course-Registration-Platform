@@ -33,6 +33,7 @@ import { CATEGORY_LABEL } from '@/features/structure/api/types';
 import { AnnouncementList, MaterialList } from '@/features/teaching/components/teaching-components';
 import { useMaterials, useSectionAnnouncements } from '@/features/teaching/api/teaching-queries';
 import { useSection } from '@/features/courses/api/courses-queries';
+import { MyAssessmentsPanel, MyAttendancePanel } from '@/features/academics/pages/academic-pages';
 import { DiscussionBoard } from '@/features/communication/pages/discussion-pages';
 import { errorMessage } from '@/services/api-error';
 import {
@@ -985,6 +986,11 @@ export function HistoryPage() {
       <PageHeader
         title="Academic history"
         description={`${d.creditsEarned} credits earned${d.cgpa !== null ? ` · CGPA ${d.cgpa.toFixed(2)}` : ''}`}
+        actions={
+          <Button asChild variant="outline">
+            <Link to="/student/transcript">View transcript</Link>
+          </Button>
+        }
       />
       {d.sessions.length === 0 ? (
         <EmptyState title="No completed courses yet" />
@@ -1038,6 +1044,7 @@ export function HistoryPage() {
 /** A registered course: schedule, materials and announcements. */
 export function StudentCoursePage() {
   const { sectionId = '' } = useParams();
+  const [params, setParams] = useSearchParams();
   const section = useSection(sectionId);
   const materials = useMaterials(sectionId);
   const announcements = useSectionAnnouncements(sectionId);
@@ -1051,11 +1058,16 @@ export function StudentCoursePage() {
         title={`${s.course.code} ${s.sectionCode} · ${s.course.title}`}
         description={`${s.session.name} · ${s.instructors.find((i) => i.role === 'PRIMARY')?.name ?? 'Instructor TBA'}`}
       />
-      <Tabs defaultValue="materials">
-        <TabsList className="mb-4">
+      <Tabs
+        value={params.get('tab') ?? 'materials'}
+        onValueChange={(v) => setParams(v === 'materials' ? {} : { tab: v }, { replace: true })}
+      >
+        <TabsList className="mb-4 h-auto flex-wrap justify-start">
           <TabsTrigger value="materials">Materials</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
           <TabsTrigger value="discussions">Discussions</TabsTrigger>
+          <TabsTrigger value="assessments">Assessments</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
         </TabsList>
         <TabsContent value="materials">
@@ -1078,6 +1090,12 @@ export function StudentCoursePage() {
         </TabsContent>
         <TabsContent value="discussions">
           <DiscussionBoard sectionId={sectionId} portal="student" />
+        </TabsContent>
+        <TabsContent value="assessments">
+          <MyAssessmentsPanel sectionId={sectionId} />
+        </TabsContent>
+        <TabsContent value="attendance">
+          <MyAttendancePanel sectionId={sectionId} />
         </TabsContent>
         <TabsContent value="schedule">
           <Card>

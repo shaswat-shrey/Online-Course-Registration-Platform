@@ -235,5 +235,6 @@ export const CATEGORY_NOTIFICATION_LABEL: Record<NotificationCategory, string> =
   TICKET: 'Support tickets',
   FEEDBACK: 'Feedback',
   SCHEDULE: 'Schedule changes',
+  GRADES: 'Grades and results',
   SYSTEM: 'System notices',
 };

@@ -1,7 +1,7 @@
 # Development Roadmap
 
 **Current phase:** Phase 8 — Student portal (**complete**, 2026-11-20)
-**Next phase:** Phase 10 — Academic management
+**Next phase:** Phase 11 — Analytics and reporting
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -204,9 +204,24 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - Notifying students when an active session's dates move (BR-020) still waits on a session-change workflow (Phase 10 calendar work).
 
 ## Phase 10 — Academic management
-- [ ] Timetables (faculty, classroom views), classroom availability
-- [ ] Attendance, assessments, final grade submission/approval/posting, grade changes, GPA, transcripts
-- [ ] Tests
+- [x] Models: AttendanceSession, AttendanceRecord, Assessment, AssessmentScore, FinalGradeSubmission, FinalGradeEntry, GradeChange; `course_sections.attendance_enabled`, `universities.gpa_repeat_policy`; notification category `GRADES`; CHECKs on weights, scores, posting and versions
+- [x] Timetables (FR-ACAD-001) were already built from section meetings (student, faculty, classroom, section); classroom free/busy per session with utilisation (FR-ACAD-002)
+- [x] Attendance (FR-ACAD-003): per-section switch, class dates, Present/Absent/Late/Excused marks, percentages (excused not counted) on the register and roster (and its CSV), students' own record
+- [x] Assessments (FR-ACAD-004): components with weights capped at 100 %, scores within the maximum or excused, publishing (notifies students), weighted gradebook from a shared `weightedPercent` rule
+- [x] Final grades (FR-ACAD-006/007): primary instructor drafts (suggested letters from the session scale) and submits once weights total 100 %; administrators with `grade:approve` in scope return with a reason or approve, which posts academic records, completes registrations and notifies students and the instructor
+- [x] Grade changes (FR-ACAD-006/009) by `grade:change` with a reason; versions kept in `grade_changes`
+- [x] Transcripts and GPA (FR-ACAD-008) with a university-wide repeat policy (all / latest / best attempt); student history uses the same builder
+- [x] Web: workspace tabs for attendance, assessments and final grades; student course tabs for assessments and attendance; transcript pages (student, and administrator with grade change and history); grade approval queue; room availability; repeat policy on the university page
+- [x] Seed: six weeks of attendance and three assessments (two published, with scores) in the dev accounts' running sections
+- [x] Fixed: wrapped tab bars on phones overlapped the content below them (tab list height now grows)
+- [x] Tests: API +5 (443), shared +3 (48), web +2 (60), E2E +4 (52 runs: attendance, and grade submission returned by the department administrator)
+
+**Verified manually (browser):** student assessments and attendance tabs with seeded data (weighted mark matches the rule), room availability grid, administrator transcript, grade approval queue.
+
+**Deferred, by design:**
+- Transfer credits and exemptions (`record:manage`) — TD-022.
+- PDF transcripts: the transcript page prints cleanly from the browser; a signed PDF is a Phase 13 candidate.
+- The E2E suite stops at "return" so it does not post grades permanently into the dev database; posting is covered by API tests.
 
 ## Phase 11 — Analytics and reporting
 - [ ] Admin dashboard aggregates (cached), department analytics, report center (15 reports), CSV/XLSX exports (sync + background)
@@ -274,6 +289,7 @@ _None known._ (Fixed in Phase 6: timestamps shifted by the database server's tim
 | TD-018 | Material ordering is by `position` within a folder but the UI has no drag-to-reorder yet | Add reordering with the student portal's materials view (Phase 8) |
 | TD-020 | No daily email digest (FR-NOTIF-006, S); emails are sent per notification | Add a digest preference and a daily job batching opted-in categories |
 | TD-021 | Section conversation membership is synced when the conversation list or the conversation is opened, or someone posts — not on every registration change | Event-driven sync from registration changes if read receipts per member become important |
+| TD-022 | No UI/API for transfer credits and exemptions (`record:manage`); records support `source` TRANSFER/EXEMPTION | Add `POST /students/{id}/records` with an admin form |
 | TD-019 | A student may register for a course they are currently taking in another (unfinished) session; FR-REG-007 only blocks courses already passed | Decide with the registrar whether to block concurrent repeats (Phase 12 review) |
 | TD-013 | Section meetings run for the whole session (no per-meeting start/end dates) | Add `starts_on`/`ends_on` if half-session courses are needed |
 | TD-014 | Syllabus is rich text only; no syllabus file attachment yet | Add with course materials (Phase 7, file service exists) |
@@ -392,7 +408,17 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | Urgent announcements are emailed regardless of preferences | Urgent notices are the case email exists for |
 | Feedback and tickets are routed to the submitter's department; university-wide grants see everything | Department administrators triage their own people (FR-COMM-011 scope model) |
 
+## Phase 10 implementation decisions
+| Decision | Reason |
+|---|---|
+| Approval posts immediately (no separate APPROVED state) | The SRS pairs approval with posting; one step avoids approved-but-unposted sheets |
+| Unmarked components count as zero in the computed mark; excused ones are left out and weights rescaled | Matches common practice and keeps the suggested grade honest mid-session |
+| Weights may never exceed 100 % and must total exactly 100 % to submit (when components exist) | FR-ACAD-004 without blocking instructors who grade without components |
+| GPA repeat policy is university-wide | The SRS calls it configurable; per-session policies would make CGPA ambiguous |
+| Posting completes registrations through the registration engine (`endRegistration`) | Keeps seat counters, events and the reconcile job consistent |
+
 ## Changelog
+- 2026-11-21 — Phase 10 complete: attendance, assessments and gradebook, final grade workflow with posting, grade changes, transcripts with repeat policy, room availability; 551 unit/integration + 52 E2E runs.
 - 2026-11-21 — Phase 9 complete: messaging with real-time delivery, discussions, announcements to every audience with scheduling and read tracking, notification preferences and email log, feedback and support tickets; 518 unit/integration + 48 E2E runs.
 - 2026-11-20 — Phase 8 complete: student portal (catalog, course page with eligibility and registration, registrations, planner, timetable with iCal, progress, history, announcements, course pages); 457 unit/integration + 44 E2E runs.
 - 2026-11-20 — Phase 7 complete: faculty portal (dashboard, assignments, workspace, roster and export, materials with uploads, section announcements); 441 unit/integration + 42 E2E runs.

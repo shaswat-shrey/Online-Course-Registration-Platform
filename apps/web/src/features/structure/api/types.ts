@@ -18,6 +18,7 @@ export interface University {
   shortName: string;
   timezone: string;
   schoolLabel: string;
+  gpaRepeatPolicy: 'ALL' | 'LATEST' | 'BEST';
   website: string | null;
   contactEmail: string | null;
   contactPhone: string | null;

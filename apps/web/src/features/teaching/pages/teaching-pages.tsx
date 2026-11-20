@@ -28,6 +28,9 @@ import {
   REGISTRATION_TONE,
   type RegistrationStatus,
 } from '@/features/registrations/api/types';
+import { AssessmentsPanel } from '@/features/academics/components/assessments-panel';
+import { AttendancePanel } from '@/features/academics/components/attendance-panel';
+import { GradesPanel } from '@/features/academics/components/grades-panel';
 import { AnnouncementFeed } from '@/features/communication/pages/announcement-pages';
 import { DiscussionBoard } from '@/features/communication/pages/discussion-pages';
 import { errorMessage } from '@/services/api-error';
@@ -406,12 +409,15 @@ export function SectionWorkspacePage() {
         value={tab}
         onValueChange={(v) => setParams(v === 'overview' ? {} : { tab: v }, { replace: true })}
       >
-        <TabsList className="mb-4 flex-wrap">
+        <TabsList className="mb-4 h-auto flex-wrap justify-start">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="roster">Roster ({s.enrolledCount})</TabsTrigger>
           <TabsTrigger value="materials">Materials</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
           <TabsTrigger value="discussions">Discussions</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="assessments">Assessments</TabsTrigger>
+          <TabsTrigger value="grades">Final grades</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
           <Card>
@@ -550,6 +556,15 @@ export function SectionWorkspacePage() {
         </TabsContent>
         <TabsContent value="discussions">
           <DiscussionBoard sectionId={sectionId} portal="faculty" />
+        </TabsContent>
+        <TabsContent value="attendance">
+          <AttendancePanel sectionId={sectionId} />
+        </TabsContent>
+        <TabsContent value="assessments">
+          <AssessmentsPanel sectionId={sectionId} />
+        </TabsContent>
+        <TabsContent value="grades">
+          <GradesPanel sectionId={sectionId} />
         </TabsContent>
       </Tabs>
     </>

@@ -21,6 +21,9 @@ import {
   Users,
   Contact,
   LifeBuoy,
+  CalendarClock,
+  FileCheck2,
+  FileText,
   MessageSquareText,
   MessagesSquare,
   MessageSquarePlus,
@@ -66,11 +69,18 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
         { label: 'Courses', to: '/admin/courses', icon: BookOpen },
         { label: 'Sections', to: '/admin/sections', icon: CalendarRange },
         { label: 'Classrooms', to: '/admin/classrooms', icon: DoorOpen },
+        { label: 'Room availability', to: '/admin/room-availability', icon: CalendarClock },
         {
           label: 'Registrations',
           to: '/admin/registrations',
           icon: ClipboardList,
           permission: 'registration:read',
+        },
+        {
+          label: 'Final grades',
+          to: '/admin/grades',
+          icon: FileCheck2,
+          permission: 'grade:approve',
         },
       ],
     },
@@ -188,6 +198,7 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
       items: [
         { label: 'Degree progress', to: '/student/progress', icon: GraduationCap },
         { label: 'Academic history', to: '/student/history', icon: History },
+        { label: 'Transcript', to: '/student/transcript', icon: FileText },
       ],
     },
     {

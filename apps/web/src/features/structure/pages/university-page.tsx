@@ -49,6 +49,7 @@ function ProfileForm({ university, canEdit }: { university: University; canEdit:
     contactEmail: university.contactEmail ?? '',
     contactPhone: university.contactPhone ?? '',
     address: university.address ?? '',
+    gpaRepeatPolicy: university.gpaRepeatPolicy,
   };
   const form = useZodForm(universityUpdateSchema, defaults);
   useEffect(() => form.reset(defaults), [university.updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -93,6 +94,18 @@ function ProfileForm({ university, canEdit }: { university: University; canEdit:
             { value: 'Faculty', label: 'Faculty' },
             { value: 'School', label: 'School' },
           ]}
+          disabled={!canEdit}
+        />
+        <SelectField
+          control={form.control}
+          name="gpaRepeatPolicy"
+          label="Repeated courses in the CGPA"
+          options={[
+            { value: 'ALL', label: 'Count every attempt' },
+            { value: 'LATEST', label: 'Count the latest attempt' },
+            { value: 'BEST', label: 'Count the best attempt' },
+          ]}
+          hint="Applies to every transcript and CGPA."
           disabled={!canEdit}
         />
         <TextField label="Website" error={e.website?.message} {...form.register('website')} />

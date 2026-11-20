@@ -207,6 +207,7 @@ export function StudentDetailPage() {
   const { studentId = '' } = useParams();
   const student = useStudent(studentId);
   const release = useReleaseHold(studentId);
+  const canReadRecords = useCan('record:read');
   if (student.isPending) return <LoadingRows rows={6} />;
   if (student.isError)
     return <ErrorState error={student.error} onRetry={() => void student.refetch()} />;
@@ -238,6 +239,11 @@ export function StudentDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canReadRecords && (
+            <Button asChild variant="outline">
+              <Link to={`/admin/students/${s.id}/transcript`}>Transcript</Link>
+            </Button>
+          )}
           {p.edit && (
             <>
               <EditStudentDialog

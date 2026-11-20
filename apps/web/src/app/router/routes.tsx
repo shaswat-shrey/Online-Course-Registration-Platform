@@ -38,6 +38,12 @@ const messagesPage = () => import('@/features/communication/pages/messages-page'
 const discussionPages = () => import('@/features/communication/pages/discussion-pages');
 const casePages = () => import('@/features/communication/pages/case-pages');
 const announcementPages = () => import('@/features/communication/pages/announcement-pages');
+const academicPage = (name: string) =>
+  lazyPage(async () => ({
+    default: (await import('@/features/academics/pages/academic-pages'))[
+      name as 'MyTranscriptPage'
+    ] as React.ComponentType,
+  }));
 
 /** Messaging, discussions, feedback and support for students and faculty (Phase 9). */
 const memberCommunication = (portal: 'faculty' | 'student'): RouteObject[] => [
@@ -511,6 +517,38 @@ export const routes: RouteObject[] = [
               lazy: comm(messagesPage, 'MessagesPage', 'admin'),
             },
             {
+              path: 'room-availability',
+              handle: crumb('Room availability'),
+              lazy: academicPage('ClassroomAvailabilityPage'),
+            },
+            {
+              element: <RequirePermission permission="grade:approve" />,
+              children: [
+                {
+                  path: 'grades',
+                  handle: crumb('Final grades'),
+                  children: [
+                    { index: true, lazy: academicPage('GradeApprovalsPage') },
+                    {
+                      path: ':sectionId',
+                      handle: crumb('Grade sheet'),
+                      lazy: academicPage('AdminGradeSheetPage'),
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              element: <RequirePermission permission="record:read" />,
+              children: [
+                {
+                  path: 'students/:studentId/transcript',
+                  handle: crumb('Transcript'),
+                  lazy: academicPage('StudentTranscriptPage'),
+                },
+              ],
+            },
+            {
               path: 'announcements',
               handle: crumb('Announcements'),
               lazy: comm(announcementPages, 'AdminAnnouncementsPage', 'admin'),
@@ -586,6 +624,11 @@ export const routes: RouteObject[] = [
           ]),
           portalRoutes('student', 'Student', [
             ...memberCommunication('student'),
+            {
+              path: 'transcript',
+              handle: crumb('Transcript'),
+              lazy: academicPage('MyTranscriptPage'),
+            },
             {
               path: 'catalog',
               handle: crumb('Catalog'),
