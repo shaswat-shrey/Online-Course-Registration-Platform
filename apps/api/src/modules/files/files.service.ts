@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { fileTypeFromBuffer } from 'file-type';
 import { ErrorCode, FILE_LIMITS, type UploadIntentInput } from '@ucrams/shared';
 import type { ActorContext } from '../../common/context/actor.js';
-import { AppError, BusinessRuleError, NotFoundError } from '../../common/exceptions/app-error.js';
+import {
+  AppError,
+  BusinessRuleError,
+  ForbiddenError,
+  NotFoundError,
+} from '../../common/exceptions/app-error.js';
+import { hasPermission } from '../authz/authz.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
 import { storage } from '../../infrastructure/storage/index.js';
 import { recordAudit } from '../audit/audit.service.js';
@@ -19,6 +25,9 @@ const notAllowed = (message: string) => new AppError(422, ErrorCode.FILE_TYPE_NO
  * Object keys are random; client file names are metadata only.
  */
 export async function createUploadIntent(actor: ActorContext, input: UploadIntentInput) {
+  // Course materials are only uploaded by people who may manage them somewhere.
+  if (input.context === 'MATERIAL' && !hasPermission(actor.grants, 'material:manage'))
+    throw new ForbiddenError();
   const limits = FILE_LIMITS[input.context];
   if (!(limits.mimeTypes as readonly string[]).includes(input.mimeType)) {
     throw notAllowed(`Allowed types: ${limits.mimeTypes.join(', ')}`);

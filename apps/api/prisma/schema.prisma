@@ -112,6 +112,9 @@ model User {
   registrationEvents    RegistrationEvent[]
   registrationDecisions RegistrationRequest[] @relation("RequestDecider")
 
+  materialsCreated SectionMaterial[]
+  announcements    Announcement[]
+
   @@index([status])
   @@map("users")
 }
@@ -897,6 +900,8 @@ model StoredFile {
   owner       User   @relation("FileOwner", fields: [ownerId], references: [id])
   avatarUsers User[] @relation("UserAvatar")
 
+  materials SectionMaterial[]
+
   @@index([ownerId, context])
   @@index([status, createdAt])
   @@map("stored_files")
@@ -1247,6 +1252,8 @@ model CourseSection {
   registrations CourseRegistration[]
   planItems     CoursePlanItem[]
 
+  materials SectionMaterial[]
+
   @@unique([courseId, sessionId, sectionCode])
   @@index([sessionId, status])
   @@index([courseId, sessionId])
@@ -1483,4 +1490,80 @@ model Notification {
 
   @@index([userId, readAt, createdAt(sort: Desc)])
   @@map("notifications")
+}
+
+// ============================================================================
+// Faculty workspace (Phase 7): course materials and section announcements
+// ============================================================================
+
+enum MaterialKind {
+  FILE
+  LINK
+}
+
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+enum AudienceType {
+  SECTION
+}
+
+/// Course material for a section (FR-FACULTY-007). Exactly one of fileId/url (CHECK in SQL).
+model SectionMaterial {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  sectionId   String       @map("section_id") @db.Uuid
+  /// Grouping label shown to students, e.g. "Week 1" or "Labs".
+  folder      String?      @db.VarChar(100)
+  title       String       @db.VarChar(200)
+  description String?      @db.VarChar(2000)
+  kind        MaterialKind
+  fileId      String?      @map("file_id") @db.Uuid
+  url         String?      @db.VarChar(1000)
+  position    Int          @default(0)
+  publishedAt DateTime?    @map("published_at") @db.Timestamptz(3)
+  createdById String       @map("created_by_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  section   CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  file      StoredFile?   @relation(fields: [fileId], references: [id])
+  createdBy User          @relation(fields: [createdById], references: [id])
+
+  @@index([sectionId, folder, position])
+  @@map("section_materials")
+}
+
+/// Announcements (FR-COMM-008). Phase 7 publishes to sections; more audiences arrive in Phase 9.
+model Announcement {
+  id          String               @id @default(uuid(7)) @db.Uuid
+  authorId    String               @map("author_id") @db.Uuid
+  title       String               @db.VarChar(200)
+  body        String               @db.Text
+  priority    AnnouncementPriority @default(NORMAL)
+  pinned      Boolean              @default(false)
+  publishedAt DateTime             @default(now()) @map("published_at") @db.Timestamptz(3)
+  expiresAt   DateTime?            @map("expires_at") @db.Timestamptz(3)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  author    User                   @relation(fields: [authorId], references: [id])
+  audiences AnnouncementAudience[]
+
+  @@index([authorId, publishedAt])
+  @@map("announcements")
+}
+
+model AnnouncementAudience {
+  announcementId String       @map("announcement_id") @db.Uuid
+  targetType     AudienceType @map("target_type")
+  targetId       String       @map("target_id") @db.Uuid
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, targetType, targetId])
+  @@index([targetType, targetId])
+  @@map("announcement_audiences")
 }

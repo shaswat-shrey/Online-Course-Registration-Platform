@@ -15,6 +15,7 @@ import { classroomsRouter } from './modules/classrooms/classrooms.routes.js';
 import { coursesRouter } from './modules/courses/courses.routes.js';
 import { sectionsRouter } from './modules/sections/sections.routes.js';
 import { plansRecordsRouter } from './modules/registrations/plans-records.routes.js';
+import { teachingRouter } from './modules/teaching/teaching.routes.js';
 import { registrationsRouter } from './modules/registrations/registrations.routes.js';
 import { notificationsRouter } from './modules/notifications/notifications.routes.js';
 import { calendarRouter } from './modules/academic-sessions/calendar.routes.js';
@@ -99,6 +100,7 @@ export function createApp(): Express {
   api.use(classroomsRouter);
   api.use(coursesRouter);
   api.use(sectionsRouter);
+  api.use(teachingRouter);
   api.use(registrationsRouter);
   api.use(plansRecordsRouter);
   api.use(notificationsRouter);

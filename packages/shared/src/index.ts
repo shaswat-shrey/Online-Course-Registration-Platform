@@ -8,3 +8,4 @@ export * from './structure.js';
 export * from './people.js';
 export * from './courses.js';
 export * from './registrations.js';
+export * from './teaching.js';

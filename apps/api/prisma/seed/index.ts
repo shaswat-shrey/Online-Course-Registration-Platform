@@ -13,6 +13,7 @@ import { syncRbacCatalog } from '../../src/modules/rbac/rbac.bootstrap.js';
 import { seedCatalog } from './courses.js';
 import { seedPeople } from './people.js';
 import { seedRegistrations } from './registrations.js';
+import { seedTeaching } from './teaching.js';
 import { seedStructure } from './structure.js';
 
 async function seedUniversity() {
@@ -148,6 +149,10 @@ async function main() {
   );
   const registrations = await seedRegistrations();
   console.warn(`Registrations seeded (${registrations.created} created).`);
+  const teaching = await seedTeaching();
+  console.warn(
+    `Teaching seeded (${teaching.materials} materials, ${teaching.announcements} announcements).`,
+  );
 }
 
 main()

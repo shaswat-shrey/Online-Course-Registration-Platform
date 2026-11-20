@@ -913,3 +913,6 @@ export async function facultySchedule(
     .reduce((sum, s) => sum + s.course.credits, 0);
   return { sections, totalCredits, maxLoadCredits: num(f.maxLoadCredits) };
 }
+
+/** Shared with the faculty workspace. */
+export { include as sectionInclude, toDto as sectionToDto };

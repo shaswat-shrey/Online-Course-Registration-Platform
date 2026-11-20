@@ -249,6 +249,20 @@ export const accountStatusSchema = z.object({
 
 export const FILE_LIMITS = {
   AVATAR: { maxBytes: 5 * 1024 * 1024, mimeTypes: ['image/png', 'image/jpeg', 'image/webp'] },
+  /** Course materials (FR-FILE-002): documents, slides, sheets, images and archives. */
+  MATERIAL: {
+    maxBytes: 50 * 1024 * 1024,
+    mimeTypes: [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'application/zip',
+    ],
+  },
 } as const;
 export type UploadContext = keyof typeof FILE_LIMITS;
 
