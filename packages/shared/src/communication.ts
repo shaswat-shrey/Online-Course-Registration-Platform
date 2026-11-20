@@ -108,6 +108,7 @@ export const NOTIFICATION_CATEGORIES = [
   'TICKET',
   'FEEDBACK',
   'SCHEDULE',
+  'GRADES',
   'SYSTEM',
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -126,6 +127,7 @@ export const DEFAULT_CHANNELS: Record<
   TICKET: { IN_APP: true, EMAIL: true },
   FEEDBACK: { IN_APP: true, EMAIL: true },
   SCHEDULE: { IN_APP: true, EMAIL: false },
+  GRADES: { IN_APP: true, EMAIL: true },
   SYSTEM: { IN_APP: true, EMAIL: false },
 };
 

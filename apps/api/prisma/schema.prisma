@@ -14,19 +14,21 @@ datasource db {
 
 /// Single-tenant: exactly one row (SRS A-01).
 model University {
-  id           String   @id @default(uuid(7)) @db.Uuid
-  name         String   @db.VarChar(200)
-  shortName    String   @map("short_name") @db.VarChar(50)
+  id              String          @id @default(uuid(7)) @db.Uuid
+  name            String          @db.VarChar(200)
+  shortName       String          @map("short_name") @db.VarChar(50)
   /// IANA time zone used to interpret deadlines (SRS A-05).
-  timezone     String   @default("UTC") @db.VarChar(64)
-  website      String?  @db.VarChar(255)
-  contactEmail String?  @map("contact_email") @db.VarChar(255)
-  contactPhone String?  @map("contact_phone") @db.VarChar(50)
-  address      String?  @db.VarChar(500)
+  timezone        String          @default("UTC") @db.VarChar(64)
+  website         String?         @db.VarChar(255)
+  contactEmail    String?         @map("contact_email") @db.VarChar(255)
+  contactPhone    String?         @map("contact_phone") @db.VarChar(50)
+  address         String?         @db.VarChar(500)
   /// Label shown for School org units ("Faculty" or "School"), ADR-003.
-  schoolLabel  String   @default("Faculty") @map("school_label") @db.VarChar(30)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  schoolLabel     String          @default("Faculty") @map("school_label") @db.VarChar(30)
+  /// How repeated courses count towards the cumulative GPA (FR-ACAD-008).
+  gpaRepeatPolicy GpaRepeatPolicy @default(ALL) @map("gpa_repeat_policy")
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("universities")
 }
@@ -130,6 +132,11 @@ model User {
   ticketsAssigned         SupportTicket[]           @relation("TicketAssignee")
   ticketResponses         TicketResponse[]
   ticketEvents            TicketEvent[]
+
+  attendanceSessionsCreated AttendanceSession[]
+  gradeSubmissionsSubmitted FinalGradeSubmission[] @relation("GradeSubmitter")
+  gradeSubmissionsDecided   FinalGradeSubmission[] @relation("GradeDecider")
+  gradeChangesMade          GradeChange[]
 
   @@index([status])
   @@map("users")
@@ -579,6 +586,9 @@ model AcademicSession {
   academicRecords AcademicRecord[]
   coursePlans     CoursePlan[]
 
+  attendance       AttendanceRecord[]
+  assessmentScores AssessmentScore[]
+
   @@index([academicYearId])
   @@index([status])
   @@map("academic_sessions")
@@ -738,9 +748,11 @@ model Student {
   holds            RegistrationHold[]
   programHistory   StudentProgramHistory[]
 
-  registrations   CourseRegistration[]
-  academicRecords AcademicRecord[]
-  coursePlans     CoursePlan[]
+  registrations     CourseRegistration[]
+  academicRecords   AcademicRecord[]
+  coursePlans       CoursePlan[]
+  attendanceRecords AttendanceRecord[]
+  assessmentScores  AssessmentScore[]
 
   @@index([programId, status])
   @@index([status])
@@ -1261,6 +1273,8 @@ model CourseSection {
   cancelReason           String?       @map("cancel_reason") @db.VarChar(500)
   /// Reason given when the current schedule was saved despite conflicts; cleared once conflict-free.
   scheduleOverrideReason String?       @map("schedule_override_reason") @db.VarChar(500)
+  /// Attendance tracking is enabled per section (FR-ACAD-003).
+  attendanceEnabled      Boolean       @default(true) @map("attendance_enabled")
   createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -1278,6 +1292,10 @@ model CourseSection {
 
   conversation      Conversation?
   discussionThreads DiscussionThread[]
+
+  attendanceSessions AttendanceSession[]
+  assessments        Assessment[]
+  gradeSubmission    FinalGradeSubmission?
 
   @@unique([courseId, sessionId, sectionCode])
   @@index([sessionId, status])
@@ -1360,6 +1378,7 @@ enum NotificationCategory {
   TICKET
   FEEDBACK
   SCHEDULE
+  GRADES
   SYSTEM
 }
 
@@ -1392,7 +1411,9 @@ model CourseRegistration {
   session  AcademicSession       @relation(fields: [sessionId], references: [id])
   events   RegistrationEvent[]
   requests RegistrationRequest[]
-  record   AcademicRecord?
+
+  finalGrade FinalGradeEntry?
+  record     AcademicRecord?
 
   @@unique([studentId, idempotencyKey])
   @@index([sectionId, status])
@@ -1465,6 +1486,7 @@ model AcademicRecord {
   course       Course              @relation(fields: [courseId], references: [id])
   session      AcademicSession?    @relation(fields: [sessionId], references: [id])
   registration CourseRegistration? @relation(fields: [registrationId], references: [id])
+  gradeChanges GradeChange[]
 
   @@index([studentId, courseId])
   @@index([studentId, sessionId])
@@ -1991,4 +2013,174 @@ model TicketAttachment {
 
   @@index([ticketId])
   @@map("ticket_attachments")
+}
+
+// ============================================================
+// Phase 10 — academic management (DATABASE.md §3.7)
+// ============================================================
+
+enum GpaRepeatPolicy {
+  /// Every attempt counts.
+  ALL
+  /// Only the most recent attempt at a course counts.
+  LATEST
+  /// Only the best attempt at a course counts.
+  BEST
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+/// One class meeting on a date for which attendance is taken (FR-ACAD-003).
+model AttendanceSession {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  sectionId   String   @map("section_id") @db.Uuid
+  date        DateTime @db.Date
+  startMinute Int?     @map("start_minute") @db.SmallInt
+  topic       String?  @db.VarChar(200)
+  createdById String   @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  section   CourseSection      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdBy User               @relation(fields: [createdById], references: [id])
+  records   AttendanceRecord[]
+
+  @@unique([sectionId, date, startMinute])
+  @@index([sectionId, date])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  attendanceSessionId String           @map("attendance_session_id") @db.Uuid
+  studentId           String           @map("student_id") @db.Uuid
+  status              AttendanceStatus
+  note                String?          @db.VarChar(300)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  session           AttendanceSession @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
+  student           Student           @relation(fields: [studentId], references: [id])
+  academicSession   AcademicSession?  @relation(fields: [academicSessionId], references: [id])
+  academicSessionId String?           @db.Uuid
+
+  @@id([attendanceSessionId, studentId])
+  @@index([studentId])
+  @@map("attendance_records")
+}
+
+enum AssessmentType {
+  ASSIGNMENT
+  QUIZ
+  EXAM
+  PROJECT
+  LAB
+  OTHER
+}
+
+/// A graded component of a section (FR-ACAD-004); weights total 100 % at grade submission.
+model Assessment {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  sectionId   String         @map("section_id") @db.Uuid
+  title       String         @db.VarChar(200)
+  type        AssessmentType
+  weight      Decimal        @db.Decimal(5, 2)
+  maxScore    Decimal        @map("max_score") @db.Decimal(6, 2)
+  dueAt       DateTime?      @map("due_at") @db.Timestamptz(3)
+  publishedAt DateTime?      @map("published_at") @db.Timestamptz(3)
+  position    Int            @default(0) @db.SmallInt
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  section CourseSection     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  scores  AssessmentScore[]
+
+  @@index([sectionId, position])
+  @@map("assessments")
+}
+
+model AssessmentScore {
+  assessmentId String   @map("assessment_id") @db.Uuid
+  studentId    String   @map("student_id") @db.Uuid
+  /// Null with `excused` = excused from this component (excluded from the computed mark).
+  score        Decimal? @db.Decimal(6, 2)
+  excused      Boolean  @default(false)
+  feedback     String?  @db.VarChar(1000)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  assessment        Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  student           Student          @relation(fields: [studentId], references: [id])
+  academicSession   AcademicSession? @relation(fields: [academicSessionId], references: [id])
+  academicSessionId String?          @db.Uuid
+
+  @@id([assessmentId, studentId])
+  @@index([studentId])
+  @@map("assessment_scores")
+}
+
+enum GradeSubmissionStatus {
+  DRAFT
+  SUBMITTED
+  RETURNED
+  POSTED
+}
+
+/// Section-level final grade workflow (FR-ACAD-006): instructor drafts and submits,
+/// an administrator approves (posting the grades) or returns it.
+model FinalGradeSubmission {
+  id            String                @id @default(uuid(7)) @db.Uuid
+  sectionId     String                @unique @map("section_id") @db.Uuid
+  status        GradeSubmissionStatus @default(DRAFT)
+  submittedById String?               @map("submitted_by_id") @db.Uuid
+  submittedAt   DateTime?             @map("submitted_at") @db.Timestamptz(3)
+  decidedById   String?               @map("decided_by_id") @db.Uuid
+  decidedAt     DateTime?             @map("decided_at") @db.Timestamptz(3)
+  returnReason  String?               @map("return_reason") @db.VarChar(1000)
+  postedAt      DateTime?             @map("posted_at") @db.Timestamptz(3)
+  updatedAt     DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  section     CourseSection     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  submittedBy User?             @relation("GradeSubmitter", fields: [submittedById], references: [id])
+  decidedBy   User?             @relation("GradeDecider", fields: [decidedById], references: [id])
+  entries     FinalGradeEntry[]
+
+  @@index([status])
+  @@map("final_grade_submissions")
+}
+
+model FinalGradeEntry {
+  registrationId String   @id @map("registration_id") @db.Uuid
+  submissionId   String   @map("submission_id") @db.Uuid
+  gradeLetter    String   @map("grade_letter") @db.VarChar(5)
+  /// Computed mark when the instructor entered it (informational).
+  percent        Decimal? @db.Decimal(5, 2)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  registration CourseRegistration   @relation(fields: [registrationId], references: [id])
+  submission   FinalGradeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@map("final_grade_entries")
+}
+
+/// Versioned history of posted-grade changes (FR-ACAD-006/009).
+model GradeChange {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  academicRecordId String   @map("academic_record_id") @db.Uuid
+  version          Int
+  fromLetter       String?  @map("from_letter") @db.VarChar(5)
+  toLetter         String   @map("to_letter") @db.VarChar(5)
+  fromPoints       Decimal? @map("from_points") @db.Decimal(4, 2)
+  toPoints         Decimal? @map("to_points") @db.Decimal(4, 2)
+  reason           String   @db.VarChar(1000)
+  changedById      String   @map("changed_by_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  record    AcademicRecord @relation(fields: [academicRecordId], references: [id])
+  changedBy User           @relation(fields: [changedById], references: [id])
+
+  @@unique([academicRecordId, version])
+  @@map("grade_changes")
 }

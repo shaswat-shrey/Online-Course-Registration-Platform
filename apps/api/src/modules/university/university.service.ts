@@ -18,6 +18,7 @@ const universitySelect = {
   shortName: true,
   timezone: true,
   schoolLabel: true,
+  gpaRepeatPolicy: true,
   website: true,
   contactEmail: true,
   contactPhone: true,

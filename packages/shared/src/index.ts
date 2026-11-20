@@ -10,3 +10,4 @@ export * from './courses.js';
 export * from './registrations.js';
 export * from './teaching.js';
 export * from './communication.js';
+export * from './academics.js';

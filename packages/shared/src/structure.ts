@@ -126,6 +126,7 @@ export const universityUpdateSchema = updateOf({
   website: optionalUrl,
   contactEmail: optionalEmail,
   contactPhone: optionalText(50),
+  gpaRepeatPolicy: z.enum(['ALL', 'LATEST', 'BEST']),
   address: optionalText(500),
   schoolLabel: z.enum(['Faculty', 'School']),
 });

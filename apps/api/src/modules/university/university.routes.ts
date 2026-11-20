@@ -28,6 +28,7 @@ const universitySchema = publicUniversitySchema
   .extend({
     contactPhone: z.string().nullable(),
     address: z.string().nullable(),
+    gpaRepeatPolicy: z.enum(['ALL', 'LATEST', 'BEST']),
     updatedAt: z.string(),
   })
   .meta({ id: 'University' });

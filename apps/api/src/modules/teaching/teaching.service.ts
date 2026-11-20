@@ -3,6 +3,7 @@ import type { ActorContext } from '../../common/context/actor.js';
 import { NotFoundError } from '../../common/exceptions/app-error.js';
 import { paging } from '../../common/http/list-query.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
+import { attendanceBySection } from '../academics/attendance.service.js';
 import { recordAudit } from '../audit/audit.service.js';
 import { avatarUrl } from '../files/files.service.js';
 import { sectionInclude, sectionToDto } from '../sections/sections.service.js';
@@ -243,7 +244,7 @@ const rosterSelect = {
 } satisfies Prisma.CourseRegistrationSelect;
 type RosterRow = Prisma.CourseRegistrationGetPayload<{ select: typeof rosterSelect }>;
 
-const rosterDto = (r: RosterRow) => ({
+const rosterDto = (r: RosterRow, attendance: Map<string, number | null> = new Map()) => ({
   registrationId: r.id,
   status: r.status,
   registeredAt: (r.registeredAt ?? r.waitlistedAt ?? r.createdAt).toISOString(),
@@ -256,8 +257,7 @@ const rosterDto = (r: RosterRow) => ({
     specialization: r.student.specialization?.name ?? null,
     yearOfStudy: r.student.yearOfStudy,
   },
-  // Attendance and assessment summaries arrive with Phase 10.
-  attendancePercent: null,
+  attendancePercent: attendance.get(r.student.id) ?? null,
 });
 
 /** Section roster (FR-FACULTY-005): instructors of the section or administrators in scope. */
@@ -282,7 +282,8 @@ export async function roster(
       ...paging(q),
     }),
   ]);
-  return { total, items: rows.map(rosterDto) };
+  const attendance = await attendanceBySection(sectionId);
+  return { total, items: rows.map((r) => rosterDto(r, attendance)) };
 }
 
 /** Neutralises spreadsheet formulas (CSV injection) and quotes every cell. */
@@ -314,9 +315,11 @@ export async function rosterCsv(
     'Year',
     'Status',
     'Registered at',
+    'Attendance %',
   ];
+  const attendance = await attendanceBySection(sectionId);
   const lines = rows
-    .map(rosterDto)
+    .map((r) => rosterDto(r, attendance))
     .map((r) =>
       [
         r.student.studentNumber,
@@ -327,6 +330,7 @@ export async function rosterCsv(
         r.student.yearOfStudy,
         r.status,
         r.registeredAt,
+        r.attendancePercent,
       ]
         .map(csvCell)
         .join(','),

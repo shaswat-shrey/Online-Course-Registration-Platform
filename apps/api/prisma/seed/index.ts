@@ -12,6 +12,7 @@ import { invalidateAuthState } from '../../src/modules/authz/grants.service.js';
 import { syncRbacCatalog } from '../../src/modules/rbac/rbac.bootstrap.js';
 import { seedCatalog } from './courses.js';
 import { seedCommunication } from './communication.js';
+import { seedAcademics } from './academics.js';
 import { seedPeople } from './people.js';
 import { seedRegistrations } from './registrations.js';
 import { seedTeaching } from './teaching.js';
@@ -156,6 +157,8 @@ async function main() {
   );
   const communication = await seedCommunication();
   console.warn(`Communication ${communication.created ? 'seeded' : 'already present'}.`);
+  const academics = await seedAcademics();
+  console.warn(`Attendance and assessments seeded for ${academics.sections} section(s).`);
 }
 
 main()

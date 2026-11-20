@@ -3,6 +3,7 @@ import type { ActorContext } from '../../common/context/actor.js';
 import { ForbiddenError, NotFoundError } from '../../common/exceptions/app-error.js';
 import { isoDate, num, paging } from '../../common/http/list-query.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
+import { buildTranscript } from '../academics/transcript.service.js';
 import { feed as announcementsFor } from '../announcements/announcements.service.js';
 import { registrationState } from '../academic-sessions/calendar.service.js';
 import { searchCourseIds } from '../courses/courses.service.js';
@@ -409,87 +410,12 @@ export async function timetableIcs(actor: ActorContext, sessionId: string) {
 /** Academic history by session with session GPA and CGPA (FR-STUDENT-011, FR-ACAD-008). */
 export async function history(actor: ActorContext) {
   const student = await me(actor);
-  const [records, withdrawn] = await Promise.all([
-    prisma.academicRecord.findMany({
-      where: { studentId: student.id },
-      include: { session: { select: { id: true, name: true, startDate: true } } },
-      orderBy: [{ session: { startDate: 'asc' } }, { courseCodeSnapshot: 'asc' }],
-    }),
-    prisma.courseRegistration.findMany({
-      where: { studentId: student.id, status: 'WITHDRAWN' },
-      include: {
-        course: { select: { code: true, title: true } },
-        session: { select: { id: true, name: true, startDate: true } },
-      },
-    }),
-  ]);
-  const gpa = (rows: typeof records) => {
-    const counted = rows.filter((r) => r.countsInGpa && r.gradePoints !== null);
-    const credits = counted.reduce((s, r) => s + r.creditsAttempted.toNumber(), 0);
-    if (!credits) return null;
-    return (
-      Math.round(
-        (counted.reduce(
-          (s, r) => s + r.gradePoints!.toNumber() * r.creditsAttempted.toNumber(),
-          0,
-        ) /
-          credits) *
-          100,
-      ) / 100
-    );
-  };
-  const sessions = new Map<
-    string,
-    { id: string; name: string; start: Date; courses: unknown[]; rows: typeof records }
-  >();
-  const bucket = (s: { id: string; name: string; startDate: Date } | null) => {
-    const key = s?.id ?? 'transfer';
-    if (!sessions.has(key))
-      sessions.set(key, {
-        id: key,
-        name: s?.name ?? 'Transfer and exemptions',
-        start: s?.startDate ?? new Date(0),
-        courses: [],
-        rows: [],
-      });
-    return sessions.get(key)!;
-  };
-  for (const r of records) {
-    const b = bucket(r.session);
-    b.rows.push(r);
-    b.courses.push({
-      courseId: r.courseId,
-      code: r.courseCodeSnapshot,
-      title: r.courseTitleSnapshot,
-      credits: r.creditsAttempted.toNumber(),
-      creditsEarned: r.creditsEarned.toNumber(),
-      grade: r.gradeLetter,
-      passed: r.passed,
-    });
-  }
-  for (const w of withdrawn) {
-    bucket(w.session).courses.push({
-      courseId: w.courseId,
-      code: w.course.code,
-      title: w.course.title,
-      credits: w.credits.toNumber(),
-      creditsEarned: 0,
-      grade: 'W',
-      passed: false,
-    });
-  }
+  const t = await buildTranscript(student.id);
   return {
-    sessions: [...sessions.values()]
-      .sort((a, b) => a.start.getTime() - b.start.getTime())
-      .map((s) => ({
-        id: s.id,
-        name: s.name,
-        courses: s.courses,
-        credits: s.rows.reduce((sum, r) => sum + r.creditsEarned.toNumber(), 0),
-        gpa: gpa(s.rows),
-      })),
-    creditsEarned: records.reduce((s, r) => s + r.creditsEarned.toNumber(), 0),
-    cgpa: gpa(records),
+    sessions: t.sessions,
+    creditsEarned: t.creditsEarned,
+    cgpa: t.cgpa,
+    repeatPolicy: t.repeatPolicy,
   };
 }
 
