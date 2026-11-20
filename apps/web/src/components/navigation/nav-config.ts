@@ -21,6 +21,7 @@ import {
   Users,
   Contact,
   LifeBuoy,
+  BarChart3,
   CalendarClock,
   FileCheck2,
   FileText,
@@ -51,7 +52,10 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
   admin: [
     {
       label: 'General',
-      items: [{ label: 'Overview', to: '/admin/dashboard', icon: LayoutDashboard }],
+      items: [
+        { label: 'Overview', to: '/admin/dashboard', icon: LayoutDashboard },
+        { label: 'Reports', to: '/admin/reports', icon: BarChart3, permission: 'report:read' },
+      ],
     },
     {
       label: 'University',

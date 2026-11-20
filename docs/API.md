@@ -163,8 +163,8 @@ The table lists the main endpoints per group. Standard CRUD = `GET /x` (list), `
 | **Support tickets** | ✅ `POST /tickets` (`fileIds[]`), `GET /tickets/mine`, `GET /tickets` (scoped queue; `status=ACTIVE|…`, `category`, `assignedToMe`, `q`), `GET /tickets/assignees`, `GET/PATCH /tickets/{id}` (status, priority, assignee; detail includes responses and status history), `POST /tickets/{id}/responses` (`internal`, `status`, `fileIds[]`), `POST /tickets/{id}/reopen`, `GET /tickets/{id}/attachments/{fileId}` |
 | **Files / documents** | ✅ `POST /files/upload-intents` (contexts `AVATAR`, `MATERIAL`, `MESSAGE`, `TICKET`), `POST /files/{id}/complete`, `PUT/DELETE /me/avatar`, `PATCH/DELETE /materials/{id}`, `GET /materials/{id}/download` (signed link after the membership check); later: `/documents` |
 | **Search** | `GET /search?q=&types=course,department,program,specialization,faculty,student` |
-| **Dashboards** | ✅ `GET /faculty/me/dashboard`, `GET /students/me/dashboard`. Later: `GET /dashboards/admin` (Phase 11) |
-| **Reports** | `GET /reports` (catalogue), `GET /reports/{reportKey}?filters…`, `POST /reports/{reportKey}/export {format}` → ExportJob, `GET /exports/{id}` |
+| **Dashboards** | ✅ `GET /faculty/me/dashboard`, `GET /students/me/dashboard`, `GET /dashboards/admin` (filters `academicYearId`, `sessionId`, `schoolId`, `departmentId`, `degreeId`, `programId`, `specializationId`, `courseId`; scoped; cached 60 s, invalidated by registration events) |
+| **Reports** | ✅ `GET /reports` (catalogue of 15), `GET /reports/{key}?page&limit&sort=field:dir&sessionId&schoolId&departmentId&programId&courseId&status&q` (scoped), `POST /reports/{key}/export` (`{ format: CSV|XLSX, filters, sort }`; ≤ 5,000 rows inline, else queued on `exports` with a notification; audited), `GET /reports/exports`, `GET /reports/exports/{id}/download` |
 | **Settings** | `GET /settings`, `PATCH /settings/{key}` |
 | **Audit logs** | `GET /audit-logs` (implemented, Phase 2; filters `action` prefix, `entityType`, `entityId`, `actorId`, `from`, `to`), `GET /audit-logs/{id}`, `POST /audit-logs/export` |
 | **Jobs** | `GET /jobs/failed`, `POST /jobs/{queue}/{id}/retry` |

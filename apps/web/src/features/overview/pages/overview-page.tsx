@@ -7,20 +7,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLoginHistory, useSessions } from '@/features/account/api/account-queries';
+import { AdminDashboard } from '@/features/analytics/admin-dashboard';
 import { StudentDashboard } from '@/features/student/components/student-components';
 import { FacultyDashboard } from '@/features/teaching/components/teaching-components';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore, useCan } from '@/store/auth-store';
 import { formatDateTime, formatRelative, SCOPE_LABEL } from '@/utils/format';
 
 const GREETING = (h: number) =>
   h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 
 /**
- * Portal landing page: account and access summary from live data. Portal-specific
- * dashboards (registrations, teaching, analytics) extend this in later phases.
+ * Portal landing page: the portal's dashboard (administrator analytics, teaching,
+ * student) above an account and access summary from live data.
  */
 export function OverviewPage({ portal }: { portal: Portal }) {
   const me = useAuthStore((s) => s.me)!;
+  const adminDashboard = useCan('dashboard:admin');
   const sessions = useSessions();
   const history = useLoginHistory();
   const previous = history.data?.filter((a) => a.outcome === 'SUCCESS')[1];
@@ -42,6 +44,7 @@ export function OverviewPage({ portal }: { portal: Portal }) {
       />
       {portal === 'faculty' && <FacultyDashboard />}
       {portal === 'student' && <StudentDashboard />}
+      {portal === 'admin' && adminDashboard && <AdminDashboard />}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card>
           <CardHeader>

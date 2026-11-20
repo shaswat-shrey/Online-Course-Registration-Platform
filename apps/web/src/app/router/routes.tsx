@@ -517,6 +517,37 @@ export const routes: RouteObject[] = [
               lazy: comm(messagesPage, 'MessagesPage', 'admin'),
             },
             {
+              element: <RequirePermission permission="report:read" />,
+              children: [
+                {
+                  path: 'reports',
+                  handle: crumb('Reports'),
+                  children: [
+                    {
+                      index: true,
+                      lazy: lazyPage(async () => ({
+                        default: (await import('@/features/analytics/report-pages')).ReportsPage,
+                      })),
+                    },
+                    {
+                      path: 'exports',
+                      handle: crumb('My exports'),
+                      lazy: lazyPage(async () => ({
+                        default: (await import('@/features/analytics/report-pages')).ExportsPage,
+                      })),
+                    },
+                    {
+                      path: ':reportKey',
+                      handle: crumb('Report'),
+                      lazy: lazyPage(async () => ({
+                        default: (await import('@/features/analytics/report-pages')).ReportPage,
+                      })),
+                    },
+                  ],
+                },
+              ],
+            },
+            {
               path: 'room-availability',
               handle: crumb('Room availability'),
               lazy: academicPage('ClassroomAvailabilityPage'),

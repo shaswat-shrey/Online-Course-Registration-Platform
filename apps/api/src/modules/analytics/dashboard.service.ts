@@ -388,7 +388,7 @@ async function compute(actor: ActorContext, f: DashboardFilters) {
         feedback: openFeedback,
       },
       recentAudit: recentAudit.map((a) => ({
-        id: a.id,
+        id: String(a.id),
         action: a.action,
         entityType: a.entityType,
         actor: a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : 'System',

@@ -1,7 +1,7 @@
 # Development Roadmap
 
 **Current phase:** Phase 8 — Student portal (**complete**, 2026-11-20)
-**Next phase:** Phase 11 — Analytics and reporting
+**Next phase:** Phase 12 — Testing and security review
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -224,8 +224,15 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - The E2E suite stops at "return" so it does not post grades permanently into the dev database; posting is covered by API tests.
 
 ## Phase 11 — Analytics and reporting
-- [ ] Admin dashboard aggregates (cached), department analytics, report center (15 reports), CSV/XLSX exports (sync + background)
-- [ ] Tests (dashboard totals match DB — AC-ADMIN-001)
+- [x] Model: ExportJob (format, params, status, row count, file; completion CHECK)
+- [x] Administrator dashboard (FR-ADMIN-001..006): live counts, eight charts, widgets (pending approvals/tickets/feedback, recent users, recent audit) and alerts (failed jobs, stale worker heartbeat, sections below minimum enrollment, published sections without a primary instructor); filters for year, session, school, department, degree, programme, specialization and course; restricted to the caller's `dashboard:admin` scope; cached in Redis for 60 s per scope and filters, invalidated through a version key bumped on every registration event
+- [x] Report center (FR-RPT-001/002): 15 reports (students, faculty, departments, programmes, specializations, course and section enrollment, registrations, capacity, faculty workload, academic performance, course completion, student credits, enrollment trends, incomplete registrations) with server-side filters, sorting and pagination, all scoped
+- [x] Exports (FR-RPT-003/004): CSV (BOM, formula-safe) and XLSX (frozen bold header); up to 5,000 rows written immediately, larger exports on the `exports` queue re-run with the requester's current grants and notify on completion; audited; signed downloads for the requester only
+- [x] Web: dashboard on the administrator overview (KPI tiles, single-hue charts with tooltips and a data table under each, alerts, widgets), report center, report runner with filters/sort/export, "My exports"
+- [x] Fixed during the browser check: audit-log bigint ids broke the dashboard cache for administrators with audit access
+- [x] Tests: API +4 (457 incl. AC-ADMIN-001), E2E +2 (54 runs)
+
+**Verified manually (browser):** scoped department-admin dashboard (counts and charts), section enrollment report.
 
 ## Phase 12 — Testing and security review
 - [ ] Coverage gaps, full E2E suite, permission matrix tests, concurrency, OWASP review, load test of registration (k6, S)
@@ -418,6 +425,7 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | Posting completes registrations through the registration engine (`endRegistration`) | Keeps seat counters, events and the reconcile job consistent |
 
 ## Changelog
+- 2026-11-21 — Phase 11 complete: administrator dashboard with scoped, cached analytics; 15-report center; CSV/XLSX exports with background jobs; 565 unit/integration + 54 E2E runs.
 - 2026-11-21 — Phase 10 complete: attendance, assessments and gradebook, final grade workflow with posting, grade changes, transcripts with repeat policy, room availability; 551 unit/integration + 52 E2E runs.
 - 2026-11-21 — Phase 9 complete: messaging with real-time delivery, discussions, announcements to every audience with scheduling and read tracking, notification preferences and email log, feedback and support tickets; 518 unit/integration + 48 E2E runs.
 - 2026-11-20 — Phase 8 complete: student portal (catalog, course page with eligibility and registration, registrations, planner, timetable with iCal, progress, history, announcements, course pages); 457 unit/integration + 44 E2E runs.

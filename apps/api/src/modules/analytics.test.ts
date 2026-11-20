@@ -88,6 +88,7 @@ async function world() {
 describe('administrator dashboard (FR-ADMIN-001..006)', () => {
   it('AC-ADMIN-001: totals equal database counts, and scoped admins see only their scope', async () => {
     const w = await world();
+    await prisma.auditLog.create({ data: { action: 'test.event', entityType: 'Test' } });
     const res = await request(app).get(`${api}/dashboards/admin`).set(bearer(w.global)).expect(200);
     const c = res.body.data.counts;
     expect(c).toMatchObject({
@@ -103,6 +104,9 @@ describe('administrator dashboard (FR-ADMIN-001..006)', () => {
       availableSeats: 26,
       capacityUtilization: 13.3,
     });
+    // University admins read the audit log; its bigint ids must serialise.
+    expect(res.body.data.widgets.recentAudit.length).toBeGreaterThan(0);
+    expect(typeof res.body.data.widgets.recentAudit[0].id).toBe('string');
     expect(res.body.data.charts.topCourses[0]).toMatchObject({ label: 'ANA101', value: 3 });
     expect(res.body.data.alerts).toMatchObject({
       belowMinimumCount: 1,
