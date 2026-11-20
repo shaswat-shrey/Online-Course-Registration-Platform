@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { markNotificationsSchema, paginationQuerySchema } from '@ucrams/shared';
+import {
+  markNotificationsSchema,
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_CHANNELS,
+  paginationQuerySchema,
+  preferencesUpdateSchema,
+} from '@ucrams/shared';
 import { getActor } from '../../common/context/actor.js';
 import { defineRoute } from '../../common/http/define-route.js';
 import { sendOk, sendPaginated } from '../../common/http/response.js';
@@ -80,5 +86,55 @@ defineRoute(
   },
   async (req, res) => {
     sendOk(res, await service.markRead(getActor(req), req.valid.body), 'Notifications updated');
+  },
+);
+
+const preferencesDto = z.array(
+  z
+    .object({
+      category: z.enum(NOTIFICATION_CATEGORIES),
+      channels: z.array(
+        z.object({
+          channel: z.enum(NOTIFICATION_CHANNELS),
+          enabled: z.boolean(),
+          mandatory: z.boolean(),
+        }),
+      ),
+    })
+    .meta({ id: 'NotificationPreference' }),
+);
+
+defineRoute(
+  notificationsRouter,
+  {
+    method: 'get',
+    path: '/notifications/preferences',
+    summary: 'Your notification channels per category (FR-NOTIF-004)',
+    tags,
+    access: { authenticated: true },
+    responses: { 200: { description: 'Preferences', schema: successEnvelope(preferencesDto) } },
+  },
+  async (req, res) => {
+    sendOk(res, await service.getPreferences(getActor(req)), 'Preferences retrieved');
+  },
+);
+
+defineRoute(
+  notificationsRouter,
+  {
+    method: 'put',
+    path: '/notifications/preferences',
+    summary: 'Switch channels on or off (mandatory channels cannot be switched off)',
+    tags,
+    access: { authenticated: true },
+    request: { body: preferencesUpdateSchema },
+    responses: { 200: { description: 'Saved', schema: successEnvelope(preferencesDto) } },
+  },
+  async (req, res) => {
+    sendOk(
+      res,
+      await service.updatePreferences(getActor(req), req.valid.body),
+      'Preferences saved',
+    );
   },
 );

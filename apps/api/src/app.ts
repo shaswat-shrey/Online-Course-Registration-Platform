@@ -19,6 +19,10 @@ import { studentRouter } from './modules/student/student.routes.js';
 import { teachingRouter } from './modules/teaching/teaching.routes.js';
 import { registrationsRouter } from './modules/registrations/registrations.routes.js';
 import { notificationsRouter } from './modules/notifications/notifications.routes.js';
+import { announcementsRouter } from './modules/announcements/announcements.routes.js';
+import { messagingRouter } from './modules/messaging/messaging.routes.js';
+import { discussionsRouter } from './modules/discussions/discussions.routes.js';
+import { supportRouter } from './modules/support/support.routes.js';
 import { calendarRouter } from './modules/academic-sessions/calendar.routes.js';
 import { auditRouter } from './modules/audit/audit.routes.js';
 import { peopleAdminRouter } from './modules/administrators/administrators.routes.js';
@@ -106,6 +110,10 @@ export function createApp(): Express {
   api.use(registrationsRouter);
   api.use(plansRecordsRouter);
   api.use(notificationsRouter);
+  api.use(announcementsRouter);
+  api.use(messagingRouter);
+  api.use(discussionsRouter);
+  api.use(supportRouter);
   api.use(importsRouter);
   app.use(API_PREFIX, api);
 

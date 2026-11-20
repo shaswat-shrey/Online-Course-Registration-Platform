@@ -1,7 +1,7 @@
 import { Worker, type Job, type Processor } from 'bullmq';
 import { logger } from './config/logger.js';
 import { prisma } from './infrastructure/database/prisma.js';
-import { sendMail, type MailMessage } from './infrastructure/email/mailer.js';
+import { deliverEmail, type EmailJob } from './infrastructure/email/outbox.js';
 import { closeQueues, getQueue, QUEUE_PREFIX, QueueName } from './infrastructure/queues/queues.js';
 import { createQueueConnection, redis, waitForRedis } from './infrastructure/redis/redis.js';
 import { purgeStalePendingFiles } from './modules/files/files.service.js';
@@ -12,7 +12,12 @@ import {
   reconcileCounters,
   sweepWaitlists,
 } from './modules/registrations/waitlist.service.js';
+import { closeResolvedTickets } from './modules/support/tickets.service.js';
 import { purgeOldNotifications } from './modules/notifications/notifications.service.js';
+import {
+  fanOutAnnouncement,
+  sweepDueAnnouncements,
+} from './modules/announcements/announcements.service.js';
 
 /** Last time the worker ran its heartbeat; read by admin system alerts (Phase 11). */
 export const WORKER_HEARTBEAT_KEY = 'worker:heartbeat';
@@ -21,7 +26,11 @@ const HEARTBEAT_EVERY_MS = 60_000;
 const processors: Partial<Record<QueueName, { processor: Processor; concurrency: number }>> = {
   [QueueName.EMAIL]: {
     concurrency: 5,
-    processor: async (job: Job<MailMessage>) => sendMail(job.data),
+    processor: async (job: Job<EmailJob>) =>
+      deliverEmail(job.data, {
+        number: job.attemptsMade + 1,
+        final: job.attemptsMade + 1 >= (job.opts.attempts ?? 1),
+      }),
   },
   [QueueName.IMPORTS]: {
     concurrency: 1,
@@ -40,6 +49,11 @@ const processors: Partial<Record<QueueName, { processor: Processor; concurrency:
       }
     },
   },
+  [QueueName.ANNOUNCEMENTS]: {
+    concurrency: 2,
+    processor: async (job: Job<{ announcementId: string }>) =>
+      fanOutAnnouncement(job.data.announcementId),
+  },
   [QueueName.MAINTENANCE]: {
     concurrency: 1,
     processor: async (job: Job) => {
@@ -50,6 +64,10 @@ const processors: Partial<Record<QueueName, { processor: Processor; concurrency:
           return sweepWaitlists();
         case 'reconcile-counters':
           return reconcileCounters();
+        case 'close-resolved-tickets':
+          return closeResolvedTickets();
+        case 'announcement-sweep':
+          return sweepDueAnnouncements();
         case 'purge-notifications':
           return { purged: await purgeOldNotifications() };
         case 'heartbeat':
@@ -110,6 +128,16 @@ async function main() {
     'purge-notifications',
     { every: 24 * 60 * 60_000 },
     { name: 'purge-notifications', opts: { attempts: 3 } },
+  );
+  await getQueue(QueueName.MAINTENANCE).upsertJobScheduler(
+    'announcement-sweep',
+    { every: 60_000 },
+    { name: 'announcement-sweep', opts: { attempts: 1 } },
+  );
+  await getQueue(QueueName.MAINTENANCE).upsertJobScheduler(
+    'close-resolved-tickets',
+    { every: 60 * 60_000 },
+    { name: 'close-resolved-tickets', opts: { attempts: 3 } },
   );
   logger.info({ queues: Object.keys(processors) }, 'Worker started');
 

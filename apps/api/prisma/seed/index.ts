@@ -11,6 +11,7 @@ import { hashPassword } from '../../src/modules/auth/password.js';
 import { invalidateAuthState } from '../../src/modules/authz/grants.service.js';
 import { syncRbacCatalog } from '../../src/modules/rbac/rbac.bootstrap.js';
 import { seedCatalog } from './courses.js';
+import { seedCommunication } from './communication.js';
 import { seedPeople } from './people.js';
 import { seedRegistrations } from './registrations.js';
 import { seedTeaching } from './teaching.js';
@@ -153,6 +154,8 @@ async function main() {
   console.warn(
     `Teaching seeded (${teaching.materials} materials, ${teaching.announcements} announcements).`,
   );
+  const communication = await seedCommunication();
+  console.warn(`Communication ${communication.created ? 'seeded' : 'already present'}.`);
 }
 
 main()

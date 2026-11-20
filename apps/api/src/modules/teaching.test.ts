@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
 import { prisma } from '../infrastructure/database/prisma.js';
+import { fanOutAnnouncement } from './announcements/announcements.service.js';
 import { closeQueues } from '../infrastructure/queues/queues.js';
 import { resetState } from '../tests/db.js';
 import {
@@ -334,6 +335,9 @@ describe('announcements', () => {
       mine: true,
       sections: [{ id: c.section.id }],
     });
+    // The worker fans out on the announcements queue (FR-COMM-009); run its job directly.
+    expect(await fanOutAnnouncement(res.body.data.id)).toEqual({ notified: 2 });
+    expect(await fanOutAnnouncement(res.body.data.id)).toEqual({ notified: 0 });
     expect(
       await prisma.notification.count({
         where: { category: 'ANNOUNCEMENT', title: 'Quiz on Friday' },

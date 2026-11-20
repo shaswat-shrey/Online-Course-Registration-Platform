@@ -72,6 +72,7 @@ export async function seedTeaching() {
       body: 'Slides and readings are under Materials. Office hours are on the course outline.',
       pinned: true,
       publishedAt: new Date('2026-08-03T04:30:00Z'),
+      notifiedAt: new Date('2026-08-03T04:30:00Z'),
       audiences: {
         create: sections.map((s) => ({ targetType: 'SECTION' as const, targetId: s.id })),
       },
@@ -84,6 +85,7 @@ export async function seedTeaching() {
       body: 'The mid-session test moves to the following Monday, same time and room.',
       priority: 'IMPORTANT',
       publishedAt: new Date('2026-10-05T06:00:00Z'),
+      notifiedAt: new Date('2026-10-05T06:00:00Z'),
       audiences: { create: [{ targetType: 'SECTION', targetId: first.id }] },
     },
   });

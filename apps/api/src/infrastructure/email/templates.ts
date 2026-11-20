@@ -1,3 +1,4 @@
+import { env } from '../../config/env.js';
 import type { MailMessage } from './mailer.js';
 
 function escapeHtml(value: string): string {
@@ -71,5 +72,30 @@ export function passwordChangedEmail(to: string, firstName: string): MailMessage
     subject: 'Your password was changed',
     text: lines.join('\n\n'),
     html: layout('Password changed', lines),
+  };
+}
+
+/** A notification delivered by email (FR-NOTIF-005); `link` is an in-app path. */
+export function notificationEmail(
+  to: string,
+  firstName: string,
+  title: string,
+  body: string,
+  link: string | null,
+): MailMessage {
+  const url = link ? new URL(link, env.WEB_APP_URL).toString() : null;
+  const lines = [`Hello ${firstName},`, ...body.split(/\n{2,}/)];
+  return {
+    to,
+    subject: title.slice(0, 200),
+    text: `${lines.join('\n\n')}${url ? `\n\nOpen it: ${url}` : ''}\n\nYou can change which notifications you receive by email in your account settings.\n`,
+    html: layout(
+      title,
+      [
+        ...lines,
+        'You can change which notifications you receive by email in your account settings.',
+      ],
+      url ? { label: 'Open in the portal', url } : undefined,
+    ),
   };
 }

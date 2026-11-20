@@ -28,6 +28,14 @@ export async function createUploadIntent(actor: ActorContext, input: UploadInten
   // Course materials are only uploaded by people who may manage them somewhere.
   if (input.context === 'MATERIAL' && !hasPermission(actor.grants, 'material:manage'))
     throw new ForbiddenError();
+  if (input.context === 'MESSAGE' && !hasPermission(actor.grants, 'message:send'))
+    throw new ForbiddenError();
+  if (
+    input.context === 'TICKET' &&
+    !hasPermission(actor.grants, 'ticket:submit') &&
+    !hasPermission(actor.grants, 'ticket:manage')
+  )
+    throw new ForbiddenError();
   const limits = FILE_LIMITS[input.context];
   if (!(limits.mimeTypes as readonly string[]).includes(input.mimeType)) {
     throw notAllowed(`Allowed types: ${limits.mimeTypes.join(', ')}`);

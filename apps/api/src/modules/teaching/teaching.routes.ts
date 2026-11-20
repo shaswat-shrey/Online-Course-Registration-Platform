@@ -1,8 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import {
-  announcementCreateSchema,
-  announcementUpdateSchema,
   idParamSchema,
   materialCreateSchema,
   materialUpdateSchema,
@@ -13,7 +11,6 @@ import { defineRoute } from '../../common/http/define-route.js';
 import { sendCreated, sendOk, sendPaginated } from '../../common/http/response.js';
 import { paginatedEnvelope, successEnvelope } from '../../openapi/registry.js';
 import { sectionDto } from '../course-dtos.js';
-import * as announcements from './announcements.service.js';
 import * as materials from './materials.service.js';
 import * as teaching from './teaching.service.js';
 
@@ -57,20 +54,6 @@ const materialDto = z
     updatedAt: z.string(),
   })
   .meta({ id: 'SectionMaterial' });
-const announcementDto = z
-  .object({
-    id: z.uuid(),
-    title: z.string(),
-    body: z.string(),
-    priority: z.string(),
-    pinned: z.boolean(),
-    publishedAt: z.string(),
-    expiresAt: z.string().nullable(),
-    author: z.string(),
-    mine: z.boolean(),
-    sections: z.array(z.object({ id: z.uuid(), label: z.string() })),
-  })
-  .meta({ id: 'Announcement' });
 const teachingSection = sectionDto.extend({ myRole: z.string() });
 
 defineRoute(
@@ -324,106 +307,5 @@ defineRoute(
   },
   async (req, res) => {
     sendOk(res, await materials.materialLink(getActor(req), req.valid.params.id), 'Link created');
-  },
-);
-
-defineRoute(
-  teachingRouter,
-  {
-    method: 'get',
-    path: '/course-sections/:id/announcements',
-    summary: 'Announcements to a section',
-    tags,
-    access: { authenticated: true },
-    request: { params: idParamSchema },
-    responses: {
-      200: {
-        description: 'Announcements',
-        schema: successEnvelope(
-          z.object({ canPublish: z.boolean(), items: z.array(announcementDto) }),
-        ),
-      },
-    },
-  },
-  async (req, res) => {
-    sendOk(
-      res,
-      await announcements.sectionAnnouncements(getActor(req), req.valid.params.id),
-      'Announcements retrieved',
-    );
-  },
-);
-
-defineRoute(
-  teachingRouter,
-  {
-    method: 'get',
-    path: '/announcements/mine',
-    summary: 'Announcements you have published',
-    tags,
-    access: { permission: 'announcement:publish_section' },
-    responses: {
-      200: { description: 'Announcements', schema: successEnvelope(z.array(announcementDto)) },
-    },
-  },
-  async (req, res) => {
-    sendOk(res, await announcements.myAnnouncements(getActor(req)), 'Announcements retrieved');
-  },
-);
-
-defineRoute(
-  teachingRouter,
-  {
-    method: 'post',
-    path: '/announcements',
-    summary: 'Publish an announcement to one or more of your sections',
-    tags,
-    access: { permission: 'announcement:publish_section' },
-    request: { body: announcementCreateSchema },
-    responses: { 201: { description: 'Published', schema: successEnvelope(announcementDto) } },
-  },
-  async (req, res) => {
-    sendCreated(
-      res,
-      await announcements.createAnnouncement(getActor(req), req.valid.body),
-      'Announcement published',
-    );
-  },
-);
-
-defineRoute(
-  teachingRouter,
-  {
-    method: 'patch',
-    path: '/announcements/:id',
-    summary: 'Edit your announcement',
-    tags,
-    access: { permission: 'announcement:publish_section' },
-    request: { params: idParamSchema, body: announcementUpdateSchema },
-    responses: { 200: { description: 'Updated', schema: successEnvelope(announcementDto) } },
-  },
-  async (req, res) => {
-    sendOk(
-      res,
-      await announcements.updateAnnouncement(getActor(req), req.valid.params.id, req.valid.body),
-      'Announcement updated',
-    );
-  },
-);
-
-defineRoute(
-  teachingRouter,
-  {
-    method: 'delete',
-    path: '/announcements/:id',
-    summary: 'Delete your announcement',
-    tags,
-    access: { permission: 'announcement:publish_section' },
-    request: { params: idParamSchema },
-    responses: { 200: { description: 'Deleted' } },
-  },
-  async (req, res) => {
-    await announcements.deleteAnnouncement(getActor(req), req.valid.params.id);
-    sendOk(res, null, 'Announcement deleted');
   },
 );

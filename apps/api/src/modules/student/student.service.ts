@@ -3,6 +3,7 @@ import type { ActorContext } from '../../common/context/actor.js';
 import { ForbiddenError, NotFoundError } from '../../common/exceptions/app-error.js';
 import { isoDate, num, paging } from '../../common/http/list-query.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
+import { feed as announcementsFor } from '../announcements/announcements.service.js';
 import { registrationState } from '../academic-sessions/calendar.service.js';
 import { searchCourseIds } from '../courses/courses.service.js';
 import { sectionInclude, sectionToDto } from '../sections/sections.service.js';
@@ -631,43 +632,10 @@ export async function progress(actor: ActorContext) {
   };
 }
 
-/** Announcements for the student's current and upcoming sections. */
+/** Announcements that reach the student (sections, courses, programme, year, everyone). */
 export async function announcementFeed(actor: ActorContext, limit = 30) {
-  const student = await me(actor);
-  const sections = await prisma.courseRegistration.findMany({
-    where: { studentId: student.id, status: { in: ['REGISTERED', 'PENDING'] } },
-    select: {
-      sectionId: true,
-      course: { select: { code: true } },
-      section: { select: { sectionCode: true } },
-    },
-  });
-  const labels = new Map(
-    sections.map((s) => [s.sectionId, `${s.course.code} ${s.section.sectionCode}`]),
-  );
-  const now = new Date();
-  const rows = await prisma.announcement.findMany({
-    where: {
-      audiences: { some: { targetType: 'SECTION', targetId: { in: [...labels.keys()] } } },
-      publishedAt: { lte: now },
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-    },
-    include: { author: { select: { firstName: true, lastName: true } }, audiences: true },
-    orderBy: [{ publishedAt: 'desc' }],
-    take: limit,
-  });
-  return rows.map((a) => ({
-    id: a.id,
-    title: a.title,
-    body: a.body,
-    priority: a.priority,
-    pinned: a.pinned,
-    publishedAt: a.publishedAt.toISOString(),
-    author: `${a.author.firstName} ${a.author.lastName}`,
-    sections: a.audiences
-      .filter((x) => labels.has(x.targetId))
-      .map((x) => ({ id: x.targetId, label: labels.get(x.targetId)! })),
-  }));
+  await me(actor);
+  return (await announcementsFor(actor, { limit })).items;
 }
 
 /** Student dashboard (FR-STUDENT-001). */

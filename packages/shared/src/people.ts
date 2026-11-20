@@ -263,6 +263,28 @@ export const FILE_LIMITS = {
       'application/zip',
     ],
   },
+  /** Message and support-ticket attachments (FR-COMM-004/013). */
+  MESSAGE: {
+    maxBytes: 10 * 1024 * 1024,
+    mimeTypes: [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+    ],
+  },
+  TICKET: {
+    maxBytes: 10 * 1024 * 1024,
+    mimeTypes: [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+    ],
+  },
 } as const;
 export type UploadContext = keyof typeof FILE_LIMITS;
 
