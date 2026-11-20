@@ -124,6 +124,7 @@ export const sectionDto = z
     publishedAt: z.string().nullable(),
     cancelledAt: z.string().nullable(),
     cancelReason: z.string().nullable(),
+    scheduleOverrideReason: z.string().nullable(),
     meetings: z.array(meeting),
     instructors: z.array(
       z.object({

@@ -1201,23 +1201,25 @@ model Classroom {
 }
 
 model CourseSection {
-  id               String        @id @default(uuid(7)) @db.Uuid
-  courseId         String        @map("course_id") @db.Uuid
-  sessionId        String        @map("session_id") @db.Uuid
-  sectionCode      String        @map("section_code") @db.VarChar(20)
-  capacity         Int
-  enrolledCount    Int           @default(0) @map("enrolled_count")
-  waitlistCapacity Int           @default(0) @map("waitlist_capacity")
-  waitlistCount    Int           @default(0) @map("waitlist_count")
-  campusId         String?       @map("campus_id") @db.Uuid
-  status           SectionStatus @default(DRAFT)
-  registrationOpen Boolean       @default(true) @map("registration_open")
-  notes            String?       @db.VarChar(2000)
-  publishedAt      DateTime?     @map("published_at") @db.Timestamptz(3)
-  cancelledAt      DateTime?     @map("cancelled_at") @db.Timestamptz(3)
-  cancelReason     String?       @map("cancel_reason") @db.VarChar(500)
-  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                     String        @id @default(uuid(7)) @db.Uuid
+  courseId               String        @map("course_id") @db.Uuid
+  sessionId              String        @map("session_id") @db.Uuid
+  sectionCode            String        @map("section_code") @db.VarChar(20)
+  capacity               Int
+  enrolledCount          Int           @default(0) @map("enrolled_count")
+  waitlistCapacity       Int           @default(0) @map("waitlist_capacity")
+  waitlistCount          Int           @default(0) @map("waitlist_count")
+  campusId               String?       @map("campus_id") @db.Uuid
+  status                 SectionStatus @default(DRAFT)
+  registrationOpen       Boolean       @default(true) @map("registration_open")
+  notes                  String?       @db.VarChar(2000)
+  publishedAt            DateTime?     @map("published_at") @db.Timestamptz(3)
+  cancelledAt            DateTime?     @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason           String?       @map("cancel_reason") @db.VarChar(500)
+  /// Reason given when the current schedule was saved despite conflicts; cleared once conflict-free.
+  scheduleOverrideReason String?       @map("schedule_override_reason") @db.VarChar(500)
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   course       Course              @relation(fields: [courseId], references: [id])
   session      AcademicSession     @relation(fields: [sessionId], references: [id])

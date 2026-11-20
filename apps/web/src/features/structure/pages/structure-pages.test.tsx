@@ -125,6 +125,15 @@ describe('ProgramDetailPage', () => {
                 minCredits: null,
                 category: null,
                 position: 0,
+                courses: [
+                  {
+                    id: '0196f000-0000-7000-8000-00000000c101',
+                    code: 'BIO101',
+                    title: 'Cell Biology',
+                    credits: 4,
+                    status: 'ACTIVE',
+                  },
+                ],
               },
               {
                 id: 'g2',
@@ -134,6 +143,7 @@ describe('ProgramDetailPage', () => {
                 minCredits: 12,
                 category: 'LABORATORY',
                 position: 1,
+                courses: [],
               },
             ],
           }),
@@ -147,7 +157,13 @@ describe('ProgramDetailPage', () => {
     expect(
       screen.getByText('Credits from a category · 12 credits · Laboratory'),
     ).toBeInTheDocument();
+    // The ALL_OF group lists its courses.
+    expect(screen.getByRole('link', { name: 'BIO101' })).toHaveAttribute(
+      'href',
+      '/admin/courses/0196f000-0000-7000-8000-00000000c101',
+    );
     // Read-only users get no edit controls.
     expect(screen.queryByRole('button', { name: 'Add requirement' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit courses' })).not.toBeInTheDocument();
   });
 });

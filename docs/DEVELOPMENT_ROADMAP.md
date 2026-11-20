@@ -1,7 +1,7 @@
 # Development Roadmap
 
-**Current phase:** Phase 4 — Student and faculty management (**complete**, 2026-11-20)
-**Next phase:** Phase 5 — Course management
+**Current phase:** Phase 5 — Course management (**complete**, 2026-11-20)
+**Next phase:** Phase 6 — Registration engine
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -107,11 +107,22 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - Student-number and employee-number formats are fixed; making them configurable is a settings item (Phase 12).
 
 ## Phase 5 — Course management
-- [ ] Models: Course (+ outcomes, assessment components, FTS), prerequisites, corequisites, mappings, restrictions, Classroom, CourseSection, SectionMeeting, SectionInstructor
-- [ ] Prerequisite cycle detection; classroom/instructor conflict detection; capacity rules; publish/close/cancel transitions; roll-forward
-- [ ] Admin UI: course editor (prereq group builder), section editor (meeting grid, instructor picker, conflicts)
-- [ ] Seed: courses, classrooms, sections
-- [ ] Tests
+- [x] Models: Course (+ outcomes, assessment components, generated full-text `search_vector` with GIN and trigram indexes), PrerequisiteGroup/Item (AND of OR-groups with minimum grade), CourseCorequisite, CourseProgram, CourseSpecialization, CourseRestriction (course or section owner), RequirementCourse, Classroom, CourseSection, SectionMeeting, SectionInstructor; CHECKs (credits, level, enrollment, weights, capacity ≥ enrolled, meeting times/days, restriction owner/target) and one-primary-instructor partial unique index
+- [x] Course API: ranked search (full text + code prefix + trigram), filters, status lifecycle (draft → active ⇄ inactive → archived, archive/restore need `course:archive`), scoped create/edit/move, delete of unreferenced drafts only, visibility (non-managers see active courses only)
+- [x] Prerequisite cycle detection over the whole graph (BR-007) with the cycle path in the error; corequisite/prerequisite overlap rejected; program/specialization mappings; include/exclude restrictions on courses and sections; requirement-group course lists (deferred from Phase 3; drafts not allowed)
+- [x] Classrooms: CRUD, duplicate-room guard, deactivation blocked while meetings are scheduled, weekly occupancy per session
+- [x] Sections: create/edit (capacity never below enrollment, row-locked), weekly meetings and instructors with classroom/instructor conflict detection (BR-018), serialised per session with an advisory lock; overrides need a reason (room overrides also need `section:override_conflicts`) and are audited; load-limit and room-size warnings; lifecycle publish/close/reopen/cancel/complete with the primary-instructor rule (BR-014) and a publish-time conflict re-check; roll-forward into another session as drafts; faculty teaching schedule and load
+- [x] Web: course catalog (search, filters), course detail (overview, prerequisite builder, corequisites, program/specialization mappings, restrictions, sections), sections list per session (defaults to the active session) and detail (meetings editor with room search, instructor assignment, conflict panel with override, lifecycle actions, week view), roll-forward dialog, classrooms list and weekly occupancy grid, requirement-group course lists on program pages; reusable async search picker and week grid
+- [x] Seed (idempotent): 105 classrooms on two campuses, 272 courses (curated Computer Science and Mathematics catalogs, eight courses per other department) with prerequisites, lab corequisites, mappings and requirement-group lists; 602 conflict-free sections across Fall 2025, Spring 2026 (completed) and Fall 2026 (active); Spring 2027 left empty for roll-forward
+- [x] Tests: API +44 (277), shared +9 (36), web +4 (48), E2E +4 (38 runs: course → section → meetings → instructor → publish → cancel → archive; department-admin edit scope)
+
+**Verified manually (browser):** course search by topic, prerequisite builder rejecting a cycle with the path shown, section meetings conflict panel with override, classroom weekly occupancy, requirement-group course lists on a program.
+
+**Deferred, by design:**
+- Cancelling a section cancels registrations and waitlist entries and notifies people once registrations exist (Phase 6) and notifications exist (Phase 9); the section side is in place.
+- Raising capacity promotes waitlisted students in Phase 6.
+- Restrictions and prerequisite minimum grades are enforced by the registration engine (Phase 6).
+- Faculty-portal views of a teaching schedule arrive with the faculty portal (Phase 7); the API endpoint exists.
 
 ## Phase 6 — Registration engine
 - [ ] Models: CourseRegistration, RegistrationEvent, RegistrationRequest, AcademicRecord (minimal), CoursePlan/Item
@@ -205,6 +216,9 @@ _None known._
 | TD-007 | `DataTable` is a simple server-driven table; column visibility, sorting UI and bulk actions (TanStack Table) arrive with the first large admin tables | Phase 3/4 |
 | TD-008 | `seed --reset-roles` restores system role permissions without bumping holders' `permissionsVersion` (dev-only command) | Bump versions if the command is ever used outside development |
 | TD-010 | ~~"New department" shown to department-scoped admins~~ | **Resolved in Phase 4** (`grants` in `/auth/me`, `useCanAt`) |
+| TD-013 | Section meetings run for the whole session (no per-meeting start/end dates) | Add `starts_on`/`ends_on` if half-session courses are needed |
+| TD-014 | Syllabus is rich text only; no syllabus file attachment yet | Add with course materials (Phase 7, file service exists) |
+| TD-015 | Room overlap is enforced in the service under a per-session advisory lock, not by a `btree_gist` exclusion constraint | Consider the constraint if schedules are ever written outside the API |
 | TD-012 | `PUBLIC_API_URL` is `http://localhost:5173` in development so signed upload/download links go through the Vite proxy (same origin, needed by Helmet's CORP) | Production serves API and web behind one origin; revisit if they are split |
 | TD-011 | Structure lists use offset pagination and `ILIKE` search backed by trigram indexes; adequate for hundreds of rows | Revisit with the course catalog (Phase 5), which needs full-text search |
 | TD-009 | The current shadcn CLI generates components that import `cn` from shadcn's own `cn` npm package. The project standardises on the local `@/lib/utils` helper (same clsx + tailwind-merge behaviour), so generated imports are rewritten and the package is not a dependency | Rewrite the import whenever adding shadcn components (or switch wholesale to the `cn` package) |
@@ -264,7 +278,21 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | Uploaded files are type-checked by content (magic bytes), not by the declared MIME type | Clients can lie about MIME types |
 | E2E sign-in clears auth rate-limit counters before each login | The suite signs in more often from one IP than the per-IP limit allows |
 
+## Phase 5 implementation decisions
+| Decision | Reason |
+|---|---|
+| `search_vector` is a generated column declared `@default(dbgenerated())` in Prisma | Prisma cannot model generated columns; without the marker it tries to drop the expression on every diff |
+| Non-managers see active courses and published sections (plus sections they teach) | FR-CRS-006; drafts and cancelled offerings are internal |
+| Classroom conflicts block; overriding needs `section:override_conflicts` and a reason. Instructor conflicts block until the editor gives a reason | FR-CRS-007/008: rooms cannot be shared by accident; team teaching is legitimate but must be deliberate |
+| The override reason is stored on the section and cleared when the schedule becomes conflict-free; publish/reopen re-check conflicts and require it | Roll-forward can copy clashing schedules as drafts; they must not go live unacknowledged |
+| Schedule writes take `pg_advisory_xact_lock(hash(session))` | Two editors booking the same room at the same moment cannot both pass the check |
+| One `POST /course-sections/{id}/transition` endpoint instead of separate publish/close/… routes | One permission-aware state machine, one audit format |
+| Prerequisite minimum grades are stored as letters | Grading scales differ per session; the registration engine maps letters through the session's scale |
+| A course coordinator must be a member (primary or joint) of the course's department | Same rule as heads of department |
+| Roll-forward copies non-cancelled sections of active courses, skips existing codes and reports clashes | Re-running is safe; nothing is published automatically |
+
 ## Changelog
+- 2026-11-20 — Phase 5 complete: course catalog, prerequisites, mappings, restrictions, classrooms, sections with conflict detection, roll-forward (API, admin UI, seed), 361 unit/integration + 38 E2E runs.
 - 2026-11-20 — Phase 4 complete: students, faculty, administrators, holds, bulk import, avatars and profiles (API, admin UI, portals, seed), 304 unit/integration + 34 E2E runs.
 - 2026-11-20 — Phase 3 complete: university structure and academic calendar (API, admin UI, seed), 242 unit/integration + 28 E2E runs.
 - 2026-11-20 — Phase 2 complete: authentication, sessions, RBAC with relationship scopes, audit log, admin/faculty/student portal shells, 155 unit/integration + 22 E2E tests.

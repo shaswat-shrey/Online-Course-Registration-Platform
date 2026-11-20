@@ -548,4 +548,64 @@ describe('sections', () => {
       .expect(200);
     expect(again.body.data.created).toHaveLength(0);
   });
+
+  it('blocks publishing a clashing schedule until the conflict is overridden', async () => {
+    const { session, room, course, other } = await scheduled();
+    const { member } = await createFacultyRecord(
+      (await prisma.course.findUniqueOrThrow({ where: { id: course.id } })).departmentId,
+    );
+    const next = await createSession({ status: 'PLANNED' });
+    // The target session already uses the room at the time the copied section needs it.
+    await createSection(other.id, next.id, {
+      status: 'PUBLISHED',
+      meetings: [{ ...MON_9, classroomId: room.id }],
+    });
+    await createSection(course.id, session.id, {
+      status: 'PUBLISHED',
+      meetings: [{ ...MON_9, classroomId: room.id }],
+      instructorId: member.id,
+    });
+    const registrar = await as('ACADEMIC_ADMIN');
+
+    const rolled = await request(app)
+      .post(`${api}/course-sections/roll-forward`)
+      .set(bearer(registrar))
+      .send({ fromSessionId: session.id, toSessionId: next.id })
+      .expect(200);
+    expect(rolled.body.data).toMatchObject({ withConflicts: 1 });
+    const copyId = rolled.body.data.created[0].id;
+    const publish = () =>
+      request(app)
+        .post(`${api}/course-sections/${copyId}/transition`)
+        .set(bearer(registrar))
+        .send({ action: 'publish' });
+
+    const blocked = await publish().expect(409);
+    expect(blocked.body.error).toMatchObject({
+      code: 'CLASSROOM_CONFLICT',
+      details: { canOverride: false },
+    });
+
+    const meetings = { meetings: [{ ...MON_9, classroomId: room.id }] };
+    await request(app)
+      .put(`${api}/course-sections/${copyId}/meetings`)
+      .set(bearer(registrar))
+      .send({ ...meetings, override: { reason: 'Room shared by joint lecture' } })
+      .expect(200);
+    const published = await publish().expect(200);
+    expect(published.body.data).toMatchObject({
+      status: 'PUBLISHED',
+      scheduleOverrideReason: 'Room shared by joint lecture',
+    });
+
+    // Moving to a free slot clears the recorded override.
+    const cleared = await request(app)
+      .put(`${api}/course-sections/${copyId}/meetings`)
+      .set(bearer(registrar))
+      .send({
+        meetings: [{ dayOfWeek: 2, startMinute: 540, endMinute: 600, classroomId: room.id }],
+      })
+      .expect(200);
+    expect(cleared.body.data.scheduleOverrideReason).toBeNull();
+  });
 });

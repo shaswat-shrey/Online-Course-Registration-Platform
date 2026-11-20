@@ -200,6 +200,67 @@ export const routes: RouteObject[] = [
               ],
             },
             {
+              path: 'courses',
+              handle: crumb('Courses'),
+              children: [
+                {
+                  index: true,
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/courses/pages/courses-pages')).CoursesPage,
+                  })),
+                },
+                {
+                  path: ':courseId',
+                  handle: crumb('Course'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/courses/pages/courses-pages'))
+                      .CourseDetailPage,
+                  })),
+                },
+              ],
+            },
+            {
+              path: 'sections',
+              handle: crumb('Sections'),
+              children: [
+                {
+                  index: true,
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/courses/pages/sections-pages')).SectionsPage,
+                  })),
+                },
+                {
+                  path: ':sectionId',
+                  handle: crumb('Section'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/courses/pages/sections-pages'))
+                      .SectionDetailPage,
+                  })),
+                },
+              ],
+            },
+            {
+              path: 'classrooms',
+              handle: crumb('Classrooms'),
+              children: [
+                {
+                  index: true,
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/courses/pages/classrooms-pages'))
+                      .ClassroomsPage,
+                  })),
+                },
+                {
+                  path: ':classroomId',
+                  handle: crumb('Classroom'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/courses/pages/classrooms-pages'))
+                      .ClassroomDetailPage,
+                  })),
+                },
+              ],
+            },
+            {
               path: 'academic-sessions',
               handle: crumb('Academic calendar'),
               children: [

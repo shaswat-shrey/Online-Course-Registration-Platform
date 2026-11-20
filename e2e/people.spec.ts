@@ -41,8 +41,8 @@ test.describe('people administration', () => {
     await expectSignedIn(page, '/admin/dashboard');
 
     await page.goto('/admin/students');
-    const rows = page.getByRole('table').getByRole('row');
-    await expect(rows.nth(1)).toBeVisible();
+    // Wait for real rows (not loading skeletons) before reading the table.
+    await expect(page.getByRole('table').locator('tbody tr').first()).toContainText(/\d{2}CS\d{4}/);
     // Student numbers embed the department code (YY + CS + sequence), so every row is a CS student.
     const rowTexts = await page.getByRole('table').locator('tbody tr').allInnerTexts();
     expect(rowTexts.length).toBeGreaterThan(0);

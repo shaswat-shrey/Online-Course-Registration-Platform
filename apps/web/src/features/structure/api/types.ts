@@ -92,6 +92,7 @@ export interface RequirementGroup {
   minCredits: number | null;
   category: string | null;
   position: number;
+  courses: Array<{ id: string; code: string; title: string; credits: number; status: string }>;
 }
 
 export interface Specialization {

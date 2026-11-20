@@ -1,5 +1,8 @@
 import { ListChecks, Pencil, Plus } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { toast } from 'sonner';
+import { useSetRequirementCourses } from '@/features/courses/api/courses-queries';
+import { CourseListDialog } from '@/features/courses/components/course-dialogs';
 import { DetailList } from '@/components/shared/detail-list';
 import { EntityStatus, STATUS_OPTIONS } from '@/components/shared/entity-status';
 import { FilterSelect, ListToolbar, SearchInput } from '@/components/shared/list-toolbar';
@@ -166,6 +169,50 @@ export function ProgramsPage() {
   );
 }
 
+function RequirementCourses({ group, canManage }: { group: RequirementGroup; canManage: boolean }) {
+  const save = useSetRequirementCourses();
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1">
+      {group.courses.length === 0 && (
+        <span className="text-xs text-muted-foreground">No courses listed yet.</span>
+      )}
+      {group.courses.map((c) => (
+        <Link
+          key={c.id}
+          to={`/admin/courses/${c.id}`}
+          title={c.title}
+          className="rounded border px-1.5 py-0.5 font-mono text-xs hover:bg-accent"
+        >
+          {c.code}
+        </Link>
+      ))}
+      {canManage && (
+        <CourseListDialog
+          title={`Courses for “${group.name}”`}
+          description={
+            group.kind === 'ALL_OF'
+              ? 'Students must complete every course listed.'
+              : 'Students earn the required credits from these courses.'
+          }
+          initial={group.courses}
+          submitLabel="Save courses"
+          saving={save.isPending}
+          onSave={(courseIds) =>
+            save
+              .mutateAsync({ groupId: group.id, courseIds })
+              .then(() => toast.success('Requirement courses saved'))
+          }
+          trigger={(open) => (
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={open}>
+              Edit courses
+            </Button>
+          )}
+        />
+      )}
+    </div>
+  );
+}
+
 function RequirementList({
   groups,
   owner,
@@ -195,9 +242,7 @@ function RequirementList({
               {g.category && ` · ${CATEGORY_LABEL[g.category]}`}
             </p>
             {(g.kind === 'ALL_OF' || g.kind === 'CREDITS_FROM_LIST') && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Course list attached when the course catalog is set up.
-              </p>
+              <RequirementCourses group={g} canManage={canManage} />
             )}
           </div>
           {canManage && (

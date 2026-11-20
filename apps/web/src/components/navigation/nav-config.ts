@@ -1,5 +1,8 @@
 import {
   Award,
+  BookOpen,
+  CalendarRange,
+  DoorOpen,
   Building2,
   CalendarDays,
   GraduationCap,
@@ -48,6 +51,14 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
         { label: 'Departments', to: '/admin/departments', icon: Building2 },
         { label: 'Degrees', to: '/admin/degrees', icon: Award },
         { label: 'Programs', to: '/admin/programs', icon: GraduationCap },
+      ],
+    },
+    {
+      label: 'Catalog',
+      items: [
+        { label: 'Courses', to: '/admin/courses', icon: BookOpen },
+        { label: 'Sections', to: '/admin/sections', icon: CalendarRange },
+        { label: 'Classrooms', to: '/admin/classrooms', icon: DoorOpen },
       ],
     },
     {

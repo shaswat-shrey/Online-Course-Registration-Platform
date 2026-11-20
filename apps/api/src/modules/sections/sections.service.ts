@@ -125,6 +125,7 @@ function toDto(s: Row, actor: ActorContext) {
     publishedAt: s.publishedAt?.toISOString() ?? null,
     cancelledAt: s.cancelledAt?.toISOString() ?? null,
     cancelReason: s.cancelReason,
+    scheduleOverrideReason: s.scheduleOverrideReason,
     meetings: s.meetings.map((m) => ({
       id: m.id,
       dayOfWeek: m.dayOfWeek,
@@ -419,6 +420,46 @@ function resolveConflicts(
     throw new ForbiddenError('You cannot override classroom conflicts');
 }
 
+/** All current classroom and instructor clashes of a section (rooms and teachers as saved). */
+async function currentConflicts(tx: Prisma.TransactionClient, sectionId: string) {
+  const s = await tx.courseSection.findUniqueOrThrow({
+    where: { id: sectionId },
+    select: {
+      sessionId: true,
+      meetings: {
+        select: { dayOfWeek: true, startMinute: true, endMinute: true, classroomId: true },
+      },
+      instructors: { select: { facultyMemberId: true } },
+    },
+  });
+  return findConflicts(tx, {
+    sessionId: s.sessionId,
+    sectionId,
+    meetings: s.meetings,
+    instructorIds: s.instructors.map((i) => i.facultyMemberId),
+  });
+}
+
+/**
+ * Remembers why a schedule was saved despite conflicts, so publishing knows the
+ * clash was acknowledged; cleared once the schedule is conflict-free.
+ */
+async function recordOverrideState(
+  tx: Prisma.TransactionClient,
+  sectionId: string,
+  override: { reason: string } | null,
+) {
+  const remaining = await currentConflicts(tx, sectionId);
+  await tx.courseSection.update({
+    where: { id: sectionId },
+    data: remaining.length
+      ? override
+        ? { scheduleOverrideReason: override.reason }
+        : {}
+      : { scheduleOverrideReason: null },
+  });
+}
+
 export async function setMeetings(
   actor: ActorContext,
   id: string,
@@ -458,6 +499,7 @@ export async function setMeetings(
     await tx.sectionMeeting.createMany({
       data: input.meetings.map((m) => ({ sectionId: id, ...m })),
     });
+    await recordOverrideState(tx, id, found.length ? input.override : null);
     await recordAudit(
       actor,
       {
@@ -560,6 +602,7 @@ export async function setInstructors(
         role: i.role,
       })),
     });
+    await recordOverrideState(tx, id, found.length ? input.override : null);
     await recordAudit(
       actor,
       {
@@ -670,6 +713,20 @@ export async function transitionSection(
   const now = new Date();
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM course_sections WHERE id = ${id}::uuid FOR UPDATE`;
+    if (input.action === 'publish' || input.action === 'reopen') {
+      // Schedules copied by roll-forward (or edited elsewhere) may clash; publishing
+      // needs a conflict-free schedule or an explicit override recorded on the section.
+      await lockSessionSchedule(tx, s.sessionId);
+      const conflicts = await currentConflicts(tx, id);
+      if (conflicts.length && !s.scheduleOverrideReason)
+        throw new ConflictError(
+          conflicts.some((c) => c.kind === 'CLASSROOM')
+            ? ErrorCode.CLASSROOM_CONFLICT
+            : ErrorCode.INSTRUCTOR_CONFLICT,
+          'Resolve or override the scheduling conflicts before publishing',
+          { conflicts, canOverride: false },
+        );
+    }
     await tx.courseSection.update({
       where: { id },
       data: {
