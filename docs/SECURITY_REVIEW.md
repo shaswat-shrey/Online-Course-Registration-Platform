@@ -11,7 +11,7 @@ Method: OWASP Top 10 (2021) walk-through against the code, automated checks adde
 | Findings fixed | 3 (see below) |
 | Open findings | none high/medium; accepted risks listed at the end |
 | Dependencies | `npm audit`: 0 vulnerabilities (production and development) |
-| Tests | API 1,050 · shared 48 · web 60 · E2E 54 runs; API line coverage 84.9 % |
+| Tests | API 1,051 · shared 48 · web 60 · E2E 54 runs; API line coverage 84.9 % |
 
 ## Findings fixed in this review
 

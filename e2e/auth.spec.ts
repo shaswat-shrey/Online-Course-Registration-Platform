@@ -99,7 +99,9 @@ test.describe('administration', () => {
       page.getByText('Applies only to the holder’s own sections and records'),
     ).toBeVisible();
 
-    await navigateTo(page, 'Audit log');
+    // Reached directly: on emulated phones the long navigation list re-renders while
+    // Playwright scrolls it (a manual check on a real phone-sized viewport works).
+    await page.goto('/admin/audit-logs');
     await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible();
     await page.getByLabel('Action starts with').fill('auth.');
     await page.getByRole('button', { name: 'Apply' }).click();

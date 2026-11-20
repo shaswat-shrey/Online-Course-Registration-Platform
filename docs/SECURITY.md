@@ -1,6 +1,6 @@
 # Security
 
-> Status: **design (Phase 0)**. Controls are implemented progressively (most in Phases 1–2; reviewed in Phase 12). The checklist at the end tracks implementation.
+> Status: **implemented**. Controls were built in Phases 1–11 and reviewed in Phase 12; findings and their fixes are in [SECURITY_REVIEW.md](SECURITY_REVIEW.md). The checklist at the end tracks implementation.
 
 ## 1. Threat model (summary)
 

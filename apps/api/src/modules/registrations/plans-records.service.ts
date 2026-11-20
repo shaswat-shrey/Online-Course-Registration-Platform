@@ -11,7 +11,7 @@ import { loadContext } from './registration-context.js';
 import { registerBatch, selfStudent } from './registrations.service.js';
 import { evaluate } from './rules.js';
 
-// ----- academic records (read side; grading in Phase 10) -------------------------
+// ----- academic records (read side; grading lives in modules/academics) ----------
 
 const recordDto = (r: {
   id: string;

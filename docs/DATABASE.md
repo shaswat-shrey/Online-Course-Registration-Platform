@@ -1,6 +1,6 @@
 # Database Design
 
-> Status: identity, access and audit tables **implemented (Phase 2)**; structure and calendar tables **implemented (Phase 3)**; everything else is design. Changes during implementation are reflected here.
+> Status: **implemented** (Phases 2–11). `apps/api/prisma/schema.prisma` and its migrations are authoritative; this document explains the design and the constraints Prisma cannot express.
 >
 > Phase 7 added `section_materials` (CHECK: file xor link) and `announcements` with `announcement_audiences` (section audiences; more types in Phase 9).
 >

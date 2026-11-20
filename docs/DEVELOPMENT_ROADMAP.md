@@ -1,7 +1,7 @@
 # Development Roadmap
 
 **Current phase:** Phase 8 — Student portal (**complete**, 2026-11-20)
-**Next phase:** Phase 13 — Finalization
+**Status:** all phases complete (0–13).
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -244,7 +244,15 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - [x] Full suites green: API 1,050 · shared 48 · web 60 · E2E 54 runs
 
 ## Phase 13 — Finalization
-- [ ] Production compose profile, deployment guide, migration and backup procedures, monitoring, health checks, production checklist, docs consistency pass
+- [x] Production Compose profile fixed and hardened: the API now receives `JWT_ACCESS_SECRET` (it would not have started), secrets use Compose's required-variable syntax, `WEB_APP_URL`/`PUBLIC_API_URL`/`CORS_ORIGINS` come from one `PUBLIC_URL`, SMTP settings are configurable, app services restart automatically; the production environment was validated against the compiled config loader
+- [x] First-administrator bootstrap compiled into the build (`dist/bootstrap-admin.js`), so it runs in the production image without dev tools; verified idempotent
+- [x] Compiled API and worker booted from `dist/` with readiness `ok` (database, Redis, storage)
+- [x] Deployment guide ([DEPLOYMENT.md](DEPLOYMENT.md)): processes, configuration, first deployment with and without Docker, upgrades and forward-only migrations, backups and a tested restore drill (`scripts/backup-db.sh`), health checks and monitoring signals, production checklist, capacity notes
+- [x] Documentation consistency pass: status banners, stale "later phase" notes, README (features, prerequisites, setup from a fresh clone, Docker, bootstrap), API catalogue, TD-023 for designed-but-not-built endpoints
+- [x] Fixed during final verification: a sender's read pointer used the client clock and could trail their own message's database time, which occasionally suppressed the "new reply" notification (regression test added); the E2E navigation helper now waits for the phone navigation sheet to settle
+- [x] Final verification: typecheck, lint, format, production build, API 1,051 · shared 48 · web 60 unit/integration tests and 54 E2E runs (desktop + mobile), all passing
+
+**Not verified (no Docker on the development machine):** `docker compose --profile app up` end to end; CI builds both images on every push.
 
 ---
 
@@ -301,6 +309,7 @@ _None known._ (Fixed in Phase 6: timestamps shifted by the database server's tim
 | TD-018 | Material ordering is by `position` within a folder but the UI has no drag-to-reorder yet | Add reordering with the student portal's materials view (Phase 8) |
 | TD-020 | No daily email digest (FR-NOTIF-006, S); emails are sent per notification | Add a digest preference and a daily job batching opted-in categories |
 | TD-021 | Section conversation membership is synced when the conversation list or the conversation is opened, or someone posts — not on every registration change | Event-driven sync from registration changes if read receipts per member become important |
+| TD-023 | Not in this release: global search endpoint, runtime settings API, failed-job retry API, documents store (designed in API.md) | Add when needed; failed jobs are visible on the dashboard and retryable with BullMQ tooling |
 | TD-022 | No UI/API for transfer credits and exemptions (`record:manage`); records support `source` TRANSFER/EXEMPTION | Add `POST /students/{id}/records` with an admin form |
 | TD-019 | A student may register for a course they are currently taking in another (unfinished) session; FR-REG-007 only blocks courses already passed | Decide with the registrar whether to block concurrent repeats (Phase 12 review) |
 | TD-013 | Section meetings run for the whole session (no per-meeting start/end dates) | Add `starts_on`/`ends_on` if half-session courses are needed |
@@ -430,6 +439,7 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | Posting completes registrations through the registration engine (`endRegistration`) | Keeps seat counters, events and the reconcile job consistent |
 
 ## Changelog
+- 2026-11-21 — Phase 13 complete: production Compose fixes, compiled admin bootstrap, deployment/backup/monitoring guide with a tested restore, documentation pass. Project complete.
 - 2026-11-21 — Phase 12 complete: permission matrix (588 cases), coverage gaps closed, concurrency tests, OWASP review with three fixes, k6 load script; 1,158 unit/integration + 54 E2E runs.
 - 2026-11-21 — Phase 11 complete: administrator dashboard with scoped, cached analytics; 15-report center; CSV/XLSX exports with background jobs; 565 unit/integration + 54 E2E runs.
 - 2026-11-21 — Phase 10 complete: attendance, assessments and gradebook, final grade workflow with posting, grade changes, transcripts with repeat policy, room availability; 551 unit/integration + 52 E2E runs.

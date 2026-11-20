@@ -77,15 +77,19 @@ services:
       DATABASE_URL: postgresql://ucrams:${POSTGRES_PASSWORD:-ucrams_dev_password}@postgres:5432/ucrams_dev?schema=public
       REDIS_URL: redis://redis:6379/0
       STORAGE_DRIVER: s3
-      STORAGE_SIGNING_SECRET: ${STORAGE_SIGNING_SECRET:-change-me-change-me-change-me-change-me}
+      STORAGE_SIGNING_SECRET: ${STORAGE_SIGNING_SECRET:?Set STORAGE_SIGNING_SECRET in .env}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET in .env}
       S3_ENDPOINT: http://minio:9000
       S3_BUCKET: ucrams
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MAIL_TRANSPORT: smtp
-      SMTP_HOST: mailpit
-      PUBLIC_API_URL: http://localhost:8080
-      CORS_ORIGINS: http://localhost:8080
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      MAIL_FROM: ${MAIL_FROM:-UCRAMS <no-reply@ucrams.local>}
+      PUBLIC_API_URL: ${PUBLIC_URL:-http://localhost:8080}
+      WEB_APP_URL: ${PUBLIC_URL:-http://localhost:8080}
+      CORS_ORIGINS: ${PUBLIC_URL:-http://localhost:8080}
       TRUST_PROXY: '1'
       API_DOCS_ENABLED: 'false'
     depends_on:
@@ -93,6 +97,7 @@ services:
 
   api:
     profiles: [app]
+    restart: unless-stopped
     build: { context: ., dockerfile: docker/api.Dockerfile }
     environment: *app-env
     depends_on:
@@ -107,6 +112,7 @@ services:
 
   worker:
     profiles: [app]
+    restart: unless-stopped
     build: { context: ., dockerfile: docker/api.Dockerfile }
     command: ['node', 'apps/api/dist/worker.js']
     environment: *app-env
@@ -115,6 +121,7 @@ services:
 
   web:
     profiles: [app]
+    restart: unless-stopped
     build: { context: ., dockerfile: docker/web.Dockerfile }
     ports: ['8080:8080']
     depends_on:

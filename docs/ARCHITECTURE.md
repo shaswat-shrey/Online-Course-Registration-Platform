@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: **design (Phase 0)**. Nothing here is implemented yet; [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) tracks what has been built.
+> Status: **implemented**. The system follows this design; deviations and decisions made while building are recorded per phase in [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md). Operations: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 1. System architecture
 

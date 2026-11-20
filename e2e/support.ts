@@ -49,8 +49,16 @@ export async function expectSignedIn(page: Page, pathname: string) {
 
 /** Clicks a sidebar link, opening the navigation sheet first on narrow screens. */
 export async function navigateTo(page: Page, label: string) {
-  const link = page.getByRole('link', { name: label });
-  if (!(await link.isVisible()))
+  const link = page.getByRole('link', { name: label, exact: true });
+  if (!(await link.isVisible())) {
     await page.getByRole('button', { name: 'Toggle navigation' }).click();
+    // The phone navigation slides in; wait for it to finish before scrolling to the item.
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    await expect
+      .poll(async () => (await sheet.boundingBox())?.x ?? -1, { timeout: 5000 })
+      .toBeGreaterThanOrEqual(0);
+    await link.scrollIntoViewIfNeeded();
+  }
   await link.click();
 }

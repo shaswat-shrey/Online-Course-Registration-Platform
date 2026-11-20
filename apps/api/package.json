@@ -17,8 +17,9 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "bootstrap:admin": "tsx prisma/bootstrap-admin.ts",
-    "test:coverage": "vitest run --coverage --coverage.include='src/**/*.ts' --coverage.exclude='src/generated/**' --coverage.exclude='src/**/*.test.ts' --coverage.exclude='src/tests/**'"
+    "bootstrap:admin": "tsx src/bootstrap-admin.ts",
+    "test:coverage": "vitest run --coverage --coverage.include='src/**/*.ts' --coverage.exclude='src/generated/**' --coverage.exclude='src/**/*.test.ts' --coverage.exclude='src/tests/**'",
+    "start:bootstrap-admin": "node dist/bootstrap-admin.js"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

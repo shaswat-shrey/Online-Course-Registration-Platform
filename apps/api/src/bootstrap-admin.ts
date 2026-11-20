@@ -8,12 +8,12 @@
 import 'dotenv/config';
 import { RoleKey } from '@ucrams/shared';
 import { z } from 'zod';
-import { env } from '../src/config/env.js';
-import { prisma } from '../src/infrastructure/database/prisma.js';
-import { closeQueues } from '../src/infrastructure/queues/queues.js';
-import { redis } from '../src/infrastructure/redis/redis.js';
-import { issueInvitation } from '../src/modules/auth/auth.service.js';
-import { syncRbacCatalog } from '../src/modules/rbac/rbac.bootstrap.js';
+import { env } from './config/env.js';
+import { prisma } from './infrastructure/database/prisma.js';
+import { closeQueues } from './infrastructure/queues/queues.js';
+import { redis } from './infrastructure/redis/redis.js';
+import { issueInvitation } from './modules/auth/auth.service.js';
+import { syncRbacCatalog } from './modules/rbac/rbac.bootstrap.js';
 
 const input = z
   .object({

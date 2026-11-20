@@ -17,3 +17,4 @@ test-results/
 storage/
 .test-storage/
 !.env.docker.example
+backups/

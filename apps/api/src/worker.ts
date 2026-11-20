@@ -20,7 +20,7 @@ import {
   sweepDueAnnouncements,
 } from './modules/announcements/announcements.service.js';
 
-/** Last time the worker ran its heartbeat; read by admin system alerts (Phase 11). */
+/** Last time the worker ran its heartbeat; read by the administrator dashboard alerts. */
 export const WORKER_HEARTBEAT_KEY = 'worker:heartbeat';
 const HEARTBEAT_EVERY_MS = 60_000;
 

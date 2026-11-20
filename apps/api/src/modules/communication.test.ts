@@ -671,3 +671,27 @@ describe('support tickets (FR-COMM-013/014)', () => {
     await request(app).get(`${api}/tickets/${t.id}`).set(bearer(w.s2.auth)).expect(404);
   });
 });
+
+describe('read pointers', () => {
+  it('never leaves a sender behind their own message', async () => {
+    const w = await world();
+    const opened = await request(app)
+      .post(`${api}/conversations/support`)
+      .set(bearer(w.s1.auth))
+      .send({ body: 'Pointer check' })
+      .expect(201);
+    const message = await prisma.message.findUniqueOrThrow({
+      where: { id: opened.body.data.message.id },
+    });
+    const me = await prisma.conversationParticipant.findUniqueOrThrow({
+      where: {
+        conversationId_userId: {
+          conversationId: opened.body.data.conversationId,
+          userId: w.s1.user.id,
+        },
+      },
+    });
+    expect(me.lastReadAt!.getTime()).toBeGreaterThanOrEqual(message.createdAt.getTime());
+    expect(me.lastReadMessageId).toBe(message.id);
+  });
+});

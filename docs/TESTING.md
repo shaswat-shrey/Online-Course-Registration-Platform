@@ -1,6 +1,6 @@
 # Testing Strategy
 
-> Status: **design (Phase 0)**. Test infrastructure is set up in Phase 1; each later phase adds tests for its own scope before it is marked done.
+> Status: **implemented**. API 1,051 · shared 48 · web 60 unit/integration tests and 54 E2E runs (desktop and mobile); see "Phase 12 additions" at the end for coverage, the permission matrix and the load test.
 
 ## 1. Pyramid and tools
 

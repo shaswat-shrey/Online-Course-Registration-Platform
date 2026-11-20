@@ -1,6 +1,6 @@
 # User Roles and Permissions
 
-> Status: **implemented (Phase 2)**. Permission keys live in `packages/shared/src/permissions.ts`, the role matrix in `packages/shared/src/roles.ts`; both are synced into the database by the seed and by `npm run bootstrap:admin`.
+> Status: **implemented** and enforced by a route-level permission matrix test. Permission keys live in `packages/shared/src/permissions.ts`, the role matrix in `packages/shared/src/roles.ts`; both are synced into the database by the seed and by `npm run bootstrap:admin`.
 
 ## 1. Model
 

@@ -373,7 +373,6 @@ export async function sendMessage(
   await claimAttachments(actor, input.fileIds);
 
   let after: () => void = () => undefined;
-  const now = new Date();
   const message = await prisma.$transaction(async (tx) => {
     const m = await tx.message.create({
       data: {
@@ -392,10 +391,12 @@ export async function sendMessage(
         conversationId: id,
         userId: actor.userId,
         role: access.moderator ? 'MODERATOR' : 'MEMBER',
-        lastReadAt: now,
+        // The message's own (database) time: a client-side clock could trail it and
+        // leave the sender looking unread, which suppresses their next notification.
+        lastReadAt: m.createdAt,
         lastReadMessageId: m.id,
       },
-      update: { lastReadAt: now, lastReadMessageId: m.id, leftAt: null },
+      update: { lastReadAt: m.createdAt, lastReadMessageId: m.id, leftAt: null },
     });
     if (c.type !== 'SECTION') {
       const recipients = await tx.conversationParticipant.findMany({
