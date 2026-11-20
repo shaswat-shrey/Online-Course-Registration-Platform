@@ -261,6 +261,34 @@ export const routes: RouteObject[] = [
               ],
             },
             {
+              element: <RequirePermission permission="registration:read" />,
+              children: [
+                {
+                  path: 'registrations',
+                  handle: crumb('Registrations'),
+                  children: [
+                    {
+                      index: true,
+                      lazy: lazyPage(async () => ({
+                        default: (
+                          await import('@/features/registrations/pages/registrations-pages')
+                        ).RegistrationsPage,
+                      })),
+                    },
+                    {
+                      path: ':registrationId',
+                      handle: crumb('Registration'),
+                      lazy: lazyPage(async () => ({
+                        default: (
+                          await import('@/features/registrations/pages/registrations-pages')
+                        ).RegistrationDetailPage,
+                      })),
+                    },
+                  ],
+                },
+              ],
+            },
+            {
               path: 'academic-sessions',
               handle: crumb('Academic calendar'),
               children: [

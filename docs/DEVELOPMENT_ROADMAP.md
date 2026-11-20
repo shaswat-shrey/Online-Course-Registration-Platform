@@ -1,7 +1,7 @@
 # Development Roadmap
 
-**Current phase:** Phase 5 — Course management (**complete**, 2026-11-20)
-**Next phase:** Phase 6 — Registration engine
+**Current phase:** Phase 6 — Registration engine (**complete**, 2026-11-20)
+**Next phase:** Phase 7 — Faculty portal
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -125,14 +125,32 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - Faculty-portal views of a teaching schedule arrive with the faculty portal (Phase 7); the API endpoint exists.
 
 ## Phase 6 — Registration engine
-- [ ] Models: CourseRegistration, RegistrationEvent, RegistrationRequest, AcademicRecord (minimal), CoursePlan/Item
-- [ ] Rule pipeline + eligibility preview
-- [ ] Register (locking, idempotency), batch, drop, withdraw, cancel, approve/reject, admin overrides
-- [ ] Waitlist join/leave/promotion (auto + offer), sweeper, expiry at period close
-- [ ] Notifications hooks (in-app; uses Phase 9 model early — minimal Notification model introduced here)
-- [ ] Concurrency test suite; counter reconciliation job
-- [ ] Seed: historical records, registrations, waitlists
-- [ ] Exit: AC-REG-001..006 pass
+- [x] Models: CourseRegistration (denormalised course/session kept equal to the section by a trigger; one active attempt per course and session by partial unique index; idempotency key unique per student), RegistrationEvent (append-only history), RegistrationRequest (withdrawal approval), AcademicRecord (minimal, source for prerequisites and CGPA), CoursePlan/Item, Notification
+- [x] Rule pipeline as pure functions in SRS order: student status, holds, registration window (priority windows open earlier; late window needs approval), section availability, duplicate, already completed (unless repeatable), prerequisites (AND of OR-groups, minimum grade by scale order, in-progress courses per policy), corequisites (completed, registered, or in the same batch), restrictions (course + section, include/exclude), credit limit (waitlist per policy), timetable clash, seats/waitlist
+- [x] Eligibility preview for students and administrators (every rule with its result and whether it can be overridden)
+- [x] Submit: fail-fast pre-check outside locks, then student lock → section lock → re-check of seats, duplicates, credits, clashes and holds → insert + counter + history + notification in one transaction; deadlock retry; `Idempotency-Key` replays (`Idempotent-Replay: true`), key reuse for a different section → 409
+- [x] Approval modes (none, all, cross-department, late only) with PENDING seats; approve/reject singly or in bulk; withdrawal requests when the policy requires approval
+- [x] Drop (before add/drop; corequisite dependants must be dropped together), withdraw (after add/drop, before the withdrawal deadline), cancel a pending request, leave a waitlist, decline an offer
+- [x] Administrative register/drop/withdraw on a student's behalf with per-rule overrides (period, capacity, prerequisite, corequisite, restriction, credit limit, timetable) that need `registration:override` and a reason, are stored on the registration and audited; capacity overrides raise capacity
+- [x] Waitlist: join when full, ordered by time then id; promotion job per section (deduplicated) in auto-enroll or offer mode with claim window; ineligible candidates leave the list and are told why; offer expiry (delayed job and sweeper); all entries expire when the period closes; manual promotion
+- [x] Section cancellation cascades to registrations and waitlists and notifies students and instructors; raising capacity or reopening registration triggers promotion
+- [x] Worker: waitlist queue (promote, expire offer), 5-minute sweeper, hourly counter reconciliation, daily notification purge (180 days)
+- [x] In-app notifications for every registration event with unread count, list and mark-read API; bell in all portals
+- [x] Academic records read API with CGPA; course plans with validation and one-call registration
+- [x] Web: registrations list (filters incl. overrides), approvals (bulk), withdrawal requests, registration detail with history and actions, register-on-behalf with live eligibility and override checkboxes, section registrations and ordered waitlist with promote/remove, student registrations and academic record tab, notifications bell
+- [x] Seed: graded history for Fall 2025 and Spring 2026 (3,620 records), current Fall 2026 timetables (≈3,000 registrations), Spring 2027 open now with early registrations, full sections with waitlists and cross-department approvals
+- [x] Tests: API +49 (325, incl. AC-REG-001 50-way race for one seat, AC-REG-006 concurrent idempotent submits, two clashing sections from one student at once, offer expiry, period-close expiry, counter drift), shared +3 (39), web +2 (50), E2E +2 (40 runs)
+- [x] Exit: AC-REG-001..006 pass
+
+**Verified manually (browser):** approvals list, register-on-behalf preview (in-progress prerequisites accepted per policy; missing prerequisites listed with the override offered; submit refused without it), section waitlist, capacity raise promoting two waitlisted students through the running worker with notifications.
+
+**Found and fixed:** the Prisma pg adapter sent timestamps without an offset, so on a database server not running in UTC every stored instant was shifted (here by 5½ hours) while reads shifted back. The adapter now pins the session time zone to UTC; a regression test checks it; the dev database was corrected in place.
+
+**Deferred, by design:**
+- Student-facing registration screens (catalog, planner, timetable) arrive with the student portal (Phase 8); the API is complete.
+- Email delivery of notifications, preferences and real-time socket delivery in the web client arrive with communication (Phase 9); notifications are stored and pushed to the user room now.
+- `REGISTERED → COMPLETED` happens when final grades are posted (Phase 10); seeded history is already completed.
+- Waitlist reordering by administrators (FR-ADMIN-023 "reorder with override") and the conflicts view (FR-ADMIN-024) are not built yet; registrations created with overrides are filterable.
 
 ## Phase 7 — Faculty portal
 - [ ] Dashboard, profile, assignments, course workspace, roster (+export), schedule, materials (file service), section announcements, messaging entry points, feedback/ticket entry points
@@ -202,7 +220,7 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 6. OK to install Redis via Homebrew for local development (Docker is not installed)? Alternatively install Docker Desktop/OrbStack to use the compose setup.
 
 ## Known bugs
-_None known._
+_None known._ (Fixed in Phase 6: timestamps shifted by the database server's time zone; see Phase 6.)
 
 ## Technical debt
 | ID | Item | Plan |
@@ -216,6 +234,8 @@ _None known._
 | TD-007 | `DataTable` is a simple server-driven table; column visibility, sorting UI and bulk actions (TanStack Table) arrive with the first large admin tables | Phase 3/4 |
 | TD-008 | `seed --reset-roles` restores system role permissions without bumping holders' `permissionsVersion` (dev-only command) | Bump versions if the command is ever used outside development |
 | TD-010 | ~~"New department" shown to department-scoped admins~~ | **Resolved in Phase 4** (`grants` in `/auth/me`, `useCanAt`) |
+| TD-016 | Idempotency is backed by the registration row (`student_id`, `idempotency_key`), so a replayed *failed* attempt is re-evaluated instead of returning the first error | Cache full responses in Redis for 24 h if clients need exact replays of failures |
+| TD-017 | Waitlist reorder (FR-ADMIN-023) and the conflicts view (FR-ADMIN-024) | Add with the admin dashboard work (Phase 11) |
 | TD-013 | Section meetings run for the whole session (no per-meeting start/end dates) | Add `starts_on`/`ends_on` if half-session courses are needed |
 | TD-014 | Syllabus is rich text only; no syllabus file attachment yet | Add with course materials (Phase 7, file service exists) |
 | TD-015 | Room overlap is enforced in the service under a per-session advisory lock, not by a `btree_gist` exclusion constraint | Consider the constraint if schedules are ever written outside the API |
@@ -291,7 +311,21 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | A course coordinator must be a member (primary or joint) of the course's department | Same rule as heads of department |
 | Roll-forward copies non-cancelled sections of active courses, skips existing codes and reports clashes | Re-running is safe; nothing is published automatically |
 
+## Phase 6 implementation decisions
+| Decision | Reason |
+|---|---|
+| Full pipeline runs before locking (fail fast); inside the student → section locks only volatile data (seats, the student's registrations, holds) is re-read | 50 concurrent requests for one seat queued long enough on the lock to hit transaction timeouts when the whole context was loaded inside it |
+| Default transaction budget: 15 s to obtain a connection, 20 s to run | Lock queues on popular sections are expected; failures should be explicit, not premature |
+| Promotion takes the section lock first and the candidate's student lock with `NOWAIT`; if busy, it re-queues itself | Avoids deadlocks with registrations that lock student → section |
+| Ineligible waitlist candidates are cancelled (`PROMOTION_SKIPPED`) and notified rather than left in place | Leaving them would block the queue on every run; they can re-join once eligible |
+| When the registration period has closed, promotion stops and the entries expire with the period | FR-REG-024 |
+| Withdrawals and drops by students need `registration:self`; anyone else needs `registration:manage` covering the course's or the student's department | Department admins manage both their students and their courses |
+| Seat-holding counters are maintained in the same transaction and reconciled hourly; the seed writes rows and lets the reconciler set counters | One code path defines what the counters mean |
+| Pending registrations hold a seat (counted in `enrolledCount`) | FR-REG-016: approval must not be able to oversubscribe a section |
+| Spring 2027 registration opens on 18 Nov 2026 in the seed, with cross-department approval | The seeded "today" needs an open window to exercise the engine |
+
 ## Changelog
+- 2026-11-20 — Phase 6 complete: registration engine with eligibility, approvals, overrides, waitlists and offers, notifications, records and planner API, admin registration UI, seeded history and open registration; 414 unit/integration + 40 E2E runs. Fixed a database time-zone shift affecting every stored timestamp on non-UTC database servers.
 - 2026-11-20 — Phase 5 complete: course catalog, prerequisites, mappings, restrictions, classrooms, sections with conflict detection, roll-forward (API, admin UI, seed), 361 unit/integration + 38 E2E runs.
 - 2026-11-20 — Phase 4 complete: students, faculty, administrators, holds, bulk import, avatars and profiles (API, admin UI, portals, seed), 304 unit/integration + 34 E2E runs.
 - 2026-11-20 — Phase 3 complete: university structure and academic calendar (API, admin UI, seed), 242 unit/integration + 28 E2E runs.

@@ -26,6 +26,7 @@ import {
   useSetSectionRestrictions,
 } from '../api/courses-queries';
 import { MEETING_TYPE_LABEL, ROLE_LABEL, SECTION_STATUS_LABEL, type Section } from '../api/types';
+import { SectionRegistrationsCard } from '@/features/registrations/components/registration-panels';
 import { RestrictionList, RestrictionsDialog } from '../components/relation-dialogs';
 import {
   formatTime,
@@ -484,6 +485,7 @@ export function SectionDetailPage() {
           </CardContent>
         </Card>
       )}
+      {s.status !== 'DRAFT' && <SectionRegistrationsCard section={s} />}
     </>
   );
 }

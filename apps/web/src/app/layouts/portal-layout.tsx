@@ -7,6 +7,7 @@ import { AppSidebar } from '@/components/navigation/app-sidebar';
 import { Breadcrumbs } from '@/components/navigation/breadcrumbs';
 import { PortalSwitcher } from '@/components/navigation/portal-switcher';
 import { UserMenu } from '@/components/navigation/user-menu';
+import { NotificationsBell } from '@/features/notifications/notifications-bell';
 
 export function PortalLayout({ portal }: { portal: Portal }) {
   return (
@@ -20,6 +21,7 @@ export function PortalLayout({ portal }: { portal: Portal }) {
             <Breadcrumbs />
           </div>
           <PortalSwitcher portal={portal} />
+          <NotificationsBell />
           <ThemeToggle />
           <UserMenu portal={portal} />
         </header>

@@ -19,6 +19,7 @@ import {
 } from '@/features/structure/api/structure-queries';
 import { useListParams } from '@/hooks/use-list-params';
 import { errorMessage } from '@/services/api-error';
+import { StudentRegistrationsPanel } from '@/features/registrations/components/registration-panels';
 import { useCan } from '@/store/auth-store';
 import { formatDateTime } from '@/utils/format';
 import { formatDate } from '@/utils/timezone';
@@ -283,6 +284,7 @@ export function StudentDetailPage() {
           {p.readSensitive && <TabsTrigger value="contact">Contact</TabsTrigger>}
           <TabsTrigger value="holds">Holds ({s.holds.length})</TabsTrigger>
           <TabsTrigger value="history">Program history</TabsTrigger>
+          <TabsTrigger value="registrations">Registrations</TabsTrigger>
           {s.account && <TabsTrigger value="account">Account &amp; access</TabsTrigger>}
         </TabsList>
         <TabsContent value="overview" className="mt-4">
@@ -405,6 +407,15 @@ export function StudentDetailPage() {
               ))}
             </ul>
           )}
+        </TabsContent>
+        <TabsContent value="registrations" className="mt-4">
+          <StudentRegistrationsPanel
+            student={{
+              id: s.id,
+              name: `${s.firstName} ${s.lastName}`,
+              studentNumber: s.studentNumber,
+            }}
+          />
         </TabsContent>
         <TabsContent value="history" className="mt-4">
           {s.programHistory.length === 0 ? (

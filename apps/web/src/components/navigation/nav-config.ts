@@ -2,6 +2,7 @@ import {
   Award,
   BookOpen,
   CalendarRange,
+  ClipboardList,
   DoorOpen,
   Building2,
   CalendarDays,
@@ -59,6 +60,12 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
         { label: 'Courses', to: '/admin/courses', icon: BookOpen },
         { label: 'Sections', to: '/admin/sections', icon: CalendarRange },
         { label: 'Classrooms', to: '/admin/classrooms', icon: DoorOpen },
+        {
+          label: 'Registrations',
+          to: '/admin/registrations',
+          icon: ClipboardList,
+          permission: 'registration:read',
+        },
       ],
     },
     {

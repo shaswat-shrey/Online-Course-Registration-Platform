@@ -5,7 +5,9 @@ import { env } from '../../config/env.js';
 export type { PrismaClient };
 
 function createPrismaClient(): PrismaClient {
-  const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
+  // The pg adapter sends timestamps without an offset, so Postgres reads them in the
+  // session time zone. Pin it to UTC so stored instants never depend on the server's zone.
+  const adapter = new PrismaPg({ connectionString: env.DATABASE_URL, options: '-c TimeZone=UTC' });
   return new PrismaClient({
     adapter,
     log: env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
