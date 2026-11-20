@@ -173,7 +173,7 @@ This builds the `api`, `worker` and `web` images, runs `prisma migrate deploy` a
 
 Compose refuses to start the app profile until `JWT_ACCESS_SECRET`, `STORAGE_SIGNING_SECRET` and `MFA_ENCRYPTION_KEY` are set. Create the first administrator with `docker compose --profile app run --rm -e BOOTSTRAP_ADMIN_EMAIL=… -e BOOTSTRAP_ADMIN_FIRST_NAME=… -e BOOTSTRAP_ADMIN_LAST_NAME=… api node apps/api/dist/bootstrap-admin.js`. Full production guidance (TLS, backups, monitoring, checklist): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-> Docker was not available on the development machine, so the images and the Compose stack were validated by CI's image build and by running the compiled API and worker with the same production environment, not by `docker compose up` locally.
+> Verified end to end with `docker compose --profile app up -d --build`: migrations, API readiness (database, Redis, storage), the web app through Nginx on port 8080, the bootstrap command and email delivery by the worker to Mailpit.
 
 ## Development credentials
 
