@@ -1,0 +1,94 @@
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import express, { Router, type Express } from 'express';
+import helmet from 'helmet';
+import { pinoHttp } from 'pino-http';
+import swaggerUi from 'swagger-ui-express';
+import { env } from './config/env.js';
+import { logger } from './config/logger.js';
+import { errorHandler, notFoundHandler } from './common/middleware/error-handler.js';
+import { rateLimit } from './common/middleware/rate-limit.js';
+import { requestId } from './common/middleware/request-id.js';
+import { storage, LocalStorageService } from './infrastructure/storage/index.js';
+import { createLocalStorageRouter } from './infrastructure/storage/local-storage.routes.js';
+import { healthRouter } from './modules/health/health.routes.js';
+import { universityRouter } from './modules/university/university.routes.js';
+import { generateOpenApiDocument } from './openapi/registry.js';
+
+export const API_PREFIX = '/api/v1';
+
+export function createApp(): Express {
+  const app = express();
+  app.disable('x-powered-by');
+  app.set('trust proxy', env.TRUST_PROXY);
+  app.set('query parser', 'extended');
+
+  app.use(helmet());
+  app.use(
+    cors({
+      origin: env.CORS_ORIGINS,
+      credentials: true,
+      maxAge: 600,
+      exposedHeaders: ['X-Request-Id', 'RateLimit-Limit', 'RateLimit-Remaining', 'Retry-After'],
+    }),
+  );
+  app.use(requestId);
+  app.use(
+    pinoHttp({
+      logger,
+      genReqId: (req) => req.id,
+      autoLogging: { ignore: (req) => req.url?.startsWith(`${API_PREFIX}/health`) ?? false },
+      customLogLevel: (_req, res, err) =>
+        err || res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info',
+      serializers: {
+        req: (req) => ({ id: req.id, method: req.method, url: req.url }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
+    }),
+  );
+
+  const api = Router();
+  // Health is excluded from the global rate limit so probes never get 429.
+  api.use(healthRouter);
+  api.use(
+    rateLimit({
+      name: 'global',
+      points: env.RATE_LIMIT_GLOBAL_PER_MINUTE,
+      durationSeconds: 60,
+      key: (req) => req.ip ?? 'unknown',
+    }),
+  );
+  if (storage instanceof LocalStorageService) {
+    // Raw upload bodies: mounted before the JSON parser.
+    api.use(createLocalStorageRouter(storage));
+  }
+  api.use(express.json({ limit: '1mb' }));
+  api.use(cookieParser());
+  api.use(universityRouter);
+  app.use(API_PREFIX, api);
+
+  if (env.API_DOCS_ENABLED) {
+    const document = generateOpenApiDocument();
+    app.get('/api/docs/openapi.json', (_req, res) => {
+      res.json(document);
+    });
+    app.use(
+      '/api/docs',
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            'script-src': ["'self'"],
+            'style-src': ["'self'", "'unsafe-inline'"],
+            'img-src': ["'self'", 'data:'],
+          },
+        },
+      }),
+      swaggerUi.serve,
+      swaggerUi.setup(document, { customSiteTitle: 'UCRAMS API' }),
+    );
+  }
+
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+  return app;
+}

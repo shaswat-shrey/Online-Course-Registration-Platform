@@ -1,0 +1,32 @@
+// UCRAMS database schema. Design reference: docs/DATABASE.md
+// Conventions: PascalCase models mapped to snake_case tables; UUID primary keys;
+// timestamptz everywhere; RESTRICT on delete unless documented otherwise.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Single-tenant: exactly one row (SRS A-01).
+model University {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  name         String   @db.VarChar(200)
+  shortName    String   @map("short_name") @db.VarChar(50)
+  /// IANA time zone used to interpret deadlines (SRS A-05).
+  timezone     String   @default("UTC") @db.VarChar(64)
+  website      String?  @db.VarChar(255)
+  contactEmail String?  @map("contact_email") @db.VarChar(255)
+  contactPhone String?  @map("contact_phone") @db.VarChar(50)
+  address      String?  @db.VarChar(500)
+  /// Label shown for School org units ("Faculty" or "School"), ADR-003.
+  schoolLabel  String   @default("Faculty") @map("school_label") @db.VarChar(30)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("universities")
+}
