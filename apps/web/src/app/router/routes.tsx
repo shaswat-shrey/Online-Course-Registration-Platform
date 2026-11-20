@@ -489,6 +489,71 @@ export const routes: RouteObject[] = [
           ]),
           portalRoutes('student', 'Student', [
             {
+              path: 'catalog',
+              handle: crumb('Catalog'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/student/pages/student-pages')).CatalogPage,
+              })),
+            },
+            {
+              path: 'catalog/:courseId',
+              handle: crumb('Course'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/student/pages/student-pages')).CatalogCoursePage,
+              })),
+            },
+            {
+              path: 'registrations',
+              handle: crumb('My registrations'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/student/pages/student-pages'))
+                  .MyRegistrationsPage,
+              })),
+            },
+            {
+              path: 'timetable',
+              handle: crumb('Timetable'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/student/pages/student-pages')).TimetablePage,
+              })),
+            },
+            {
+              path: 'planner',
+              handle: crumb('Planner'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/student/pages/student-pages')).PlannerPage,
+              })),
+            },
+            {
+              path: 'progress',
+              handle: crumb('Degree progress'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/student/pages/student-pages')).ProgressPage,
+              })),
+            },
+            {
+              path: 'history',
+              handle: crumb('Academic history'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/student/pages/student-pages')).HistoryPage,
+              })),
+            },
+            {
+              path: 'announcements',
+              handle: crumb('Announcements'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/student/pages/student-pages'))
+                  .StudentAnnouncementsPage,
+              })),
+            },
+            {
+              path: 'courses/:sectionId',
+              handle: crumb('Course'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/student/pages/student-pages')).StudentCoursePage,
+              })),
+            },
+            {
               path: 'profile',
               handle: crumb('Profile'),
               lazy: lazyPage(async () => ({

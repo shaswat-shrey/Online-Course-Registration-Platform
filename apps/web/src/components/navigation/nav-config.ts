@@ -11,6 +11,7 @@ import {
   KeyRound,
   Landmark,
   LayoutDashboard,
+  ListChecks,
   Megaphone,
   Percent,
   School,
@@ -132,6 +133,23 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
     {
       label: 'General',
       items: [{ label: 'Overview', to: '/student/dashboard', icon: LayoutDashboard }],
+    },
+    {
+      label: 'Registration',
+      items: [
+        { label: 'Course catalog', to: '/student/catalog', icon: BookOpen },
+        { label: 'My registrations', to: '/student/registrations', icon: ClipboardList },
+        { label: 'Planner', to: '/student/planner', icon: ListChecks },
+        { label: 'Timetable', to: '/student/timetable', icon: CalendarDays },
+      ],
+    },
+    {
+      label: 'Academics',
+      items: [
+        { label: 'Degree progress', to: '/student/progress', icon: GraduationCap },
+        { label: 'Academic history', to: '/student/history', icon: History },
+        { label: 'Announcements', to: '/student/announcements', icon: Megaphone },
+      ],
     },
     {
       label: 'Account',

@@ -36,19 +36,34 @@ export function RegistrationStatusBadge({ status }: { status: RegistrationStatus
   );
 }
 
-const OUTCOME_TEXT: Record<Eligibility['outcome'], string> = {
-  REGISTER: 'Eligible: the student will be registered.',
-  PENDING: 'Eligible, but the registration needs approval (the seat is held meanwhile).',
-  WAITLIST: 'The section is full; the student can join the waitlist.',
-  FULL: 'The section and its waitlist are full.',
-  BLOCKED: 'Not eligible: see the failed checks below.',
+const OUTCOME_TEXT: Record<'admin' | 'self', Record<Eligibility['outcome'], string>> = {
+  admin: {
+    REGISTER: 'Eligible: the student will be registered.',
+    PENDING: 'Eligible, but the registration needs approval (the seat is held meanwhile).',
+    WAITLIST: 'The section is full; the student can join the waitlist.',
+    FULL: 'The section and its waitlist are full.',
+    BLOCKED: 'Not eligible: see the failed checks below.',
+  },
+  self: {
+    REGISTER: 'You can register for this section.',
+    PENDING: 'You can register; your request needs approval and holds a seat meanwhile.',
+    WAITLIST: 'This section is full. You can join the waitlist.',
+    FULL: 'This section and its waitlist are full.',
+    BLOCKED: 'You cannot register yet: see the checks below.',
+  },
 };
 
 /** Every rule's result for a student and section (FR-STUDENT-005, FR-REG-001). */
-export function EligibilityTable({ data }: { data: Eligibility }) {
+export function EligibilityTable({
+  data,
+  viewer = 'admin',
+}: {
+  data: Eligibility;
+  viewer?: 'admin' | 'self';
+}) {
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium">{OUTCOME_TEXT[data.outcome]}</p>
+      <p className="text-sm font-medium">{OUTCOME_TEXT[viewer][data.outcome]}</p>
       <ul className="divide-y rounded-lg border text-sm">
         {data.rules.map((r) => (
           <li key={r.code} className="flex items-start gap-2 px-3 py-2">

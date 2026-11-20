@@ -14,6 +14,8 @@ export const ACCOUNTS = {
   departmentAdmin: 'cs.admin@ucrams.local',
   faculty: 'faculty.cs@ucrams.local',
   student: 'student.cs@ucrams.local',
+  /** A seeded first-year CS student (deterministic seed) who has not taken CS101. */
+  firstYearStudent: 'imran.verma.26cs0001@students.northbridge.example.edu',
 } as const;
 
 /**

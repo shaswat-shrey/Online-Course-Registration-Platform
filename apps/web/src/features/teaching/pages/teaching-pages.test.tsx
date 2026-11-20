@@ -125,7 +125,11 @@ describe('faculty portal', () => {
     server.use(
       ...base,
       http.get(`${API}/announcements/mine`, () => HttpResponse.json(envelope([]))),
-      http.get(`${API}/faculty/me/sections`, () => HttpResponse.json(envelope([section]))),
+      http.get(`${API}/faculty/me/sections`, ({ request }) =>
+        HttpResponse.json(
+          envelope(new URL(request.url).searchParams.get('scope') === 'upcoming' ? [] : [section]),
+        ),
+      ),
       http.post(`${API}/announcements`, async ({ request }) => {
         body = await request.json();
         return HttpResponse.json(
@@ -153,7 +157,7 @@ describe('faculty portal', () => {
     await userEvent.type(within(dialog).getByLabelText('Message'), 'Chapters 1 to 3.');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Publish' }));
     expect(await within(dialog).findByText('Choose at least one section.')).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'CS101 B' }));
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'CS101 B (Fall 2026)' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Publish' }));
     await waitFor(() =>
       expect(body).toEqual({

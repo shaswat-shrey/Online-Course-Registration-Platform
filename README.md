@@ -2,7 +2,7 @@
 
 A full-stack platform for managing a university's academic structure, course catalog, course sections, faculty assignments, student registration (with waitlists and concurrency-safe seat allocation), communication, and reporting, through Administrator, Faculty and Student portals.
 
-> **Project status: Phase 7 (faculty portal) complete.** Authentication, access control, the academic structure, the calendar, people, the course catalog, course registration (with waitlists, approvals and overrides) and the faculty teaching workspace work end to end. The student portal (Phase 8) comes next. Progress: [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md).
+> **Project status: Phase 8 (student portal) complete.** Administration, the faculty teaching workspace and student self-service registration work end to end. Communication (messaging, announcements for wider audiences, feedback and tickets) comes next in Phase 9. Progress: [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md).
 
 ## What works today
 
@@ -17,7 +17,7 @@ A full-stack platform for managing a university's academic structure, course cat
 - **Bulk import:** CSV or Excel uploads of students or faculty with a row-by-row preview (format, unknown codes, duplicates, scope), then background creation with a per-row report and optional invitations.
 - **Administration portal:** overview, the structure, calendar, catalog, registration and people pages above (registrations, approvals, waitlists), imports, roles and permissions (permission editing for super admins), audit log with filters, and account security with a profile photo.
 - **Faculty portal:** teaching dashboard (today's classes, weekly schedule, load), teaching assignments, and a workspace per section with the roster (CSV export, academic student profiles), course materials (uploads and links, published to registered students only) and section announcements that notify the class.
-- **Student portal:** overview, profile (edit permitted fields, photo), notifications and account security. Catalog, registration and timetable screens arrive in Phase 8 (the API exists).
+- **Student portal:** dashboard, course catalog with filters and personal prerequisite status, eligibility check and registration (or waitlist/request), my registrations with drop/withdraw/claim actions by deadline, course planner with rule checks and one-click registration, weekly timetable with calendar export, degree progress by requirement group, academic history with GPA, announcements and course pages with materials.
 - **Platform:** health checks, the public university profile, Swagger docs at `/api/docs`, a BullMQ worker (email and maintenance queues), file storage drivers, and authenticated Socket.IO.
 
 ## Documentation

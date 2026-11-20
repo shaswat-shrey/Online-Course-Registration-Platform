@@ -1,7 +1,7 @@
 # Development Roadmap
 
-**Current phase:** Phase 7 — Faculty portal (**complete**, 2026-11-20)
-**Next phase:** Phase 8 — Student portal
+**Current phase:** Phase 8 — Student portal (**complete**, 2026-11-20)
+**Next phase:** Phase 9 — Communication system
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -172,9 +172,18 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
 
 ## Phase 8 — Student portal
-- [ ] Dashboard, catalog search, course detail with eligibility, registration flow, planner, registered courses, waitlist, timetable, progress, history, notifications, profile
-- [ ] Mobile layouts
-- [ ] Tests + E2E steps 8–10, 14
+- [x] API: catalog sessions with window state; catalog per session (active courses with published sections; search, department, category, level, credits, program, specialization, instructor, open-seat/waitlist availability, "in my program"; the student's own status per course); course page with personal prerequisite/corequisite status and the session's sections; dashboard; timetable and iCalendar export (weekly RRULE in the university zone); academic history with session GPA, CGPA and W entries; degree progress against program and specialization requirement groups; announcements feed
+- [x] Registered students keep access to sections (and their materials and announcements) after the section closes or completes
+- [x] Web: student overview with dashboard (profile summary, credits, degree progress, registration window and status, this session's courses, items waiting on approval/waitlist/offers, announcements), catalog with filters and deadline strip, course page with requirement chips and "Check & register" (eligibility preview, then register, request or join the waitlist with an idempotency key), my registrations (drop, withdraw, leave waitlist, cancel request, claim or decline an offer, according to deadlines), timetable (grid on desktop, day list on phones) with "Add to calendar", planner (plans per session, sections per course, rule check per item, register all), degree progress, academic history, announcements, a page per registered course (materials, announcements, schedule)
+- [x] Faculty composer can also target next session's sections
+- [x] Mobile layouts checked at 375 px (no horizontal overflow; badges no longer wrap)
+- [x] Tests: API +14 (361), web +2 (55), E2E +2 (44 runs: journey steps 8–10 and 14 with a separate faculty session)
+
+**Verified manually (browser):** student dashboard with live data, catalog and deadline strip in IST, course page with in-progress prerequisites, registration through the eligibility dialog, drop from My registrations, mobile timetable day list and progress page.
+
+**Deferred, by design:**
+- Messaging instructors and administration, section discussions, feedback and tickets (FR-STUDENT-012) arrive with communication (Phase 9).
+- Grades appear in history once grading is posted (Phase 10); seeded history is graded already.
 
 ## Phase 9 — Communication system
 - [ ] Conversations, messages, attachments, read receipts, unread counts, search, Socket.IO delivery
@@ -252,6 +261,7 @@ _None known._ (Fixed in Phase 6: timestamps shifted by the database server's tim
 | TD-016 | Idempotency is backed by the registration row (`student_id`, `idempotency_key`), so a replayed *failed* attempt is re-evaluated instead of returning the first error | Cache full responses in Redis for 24 h if clients need exact replays of failures |
 | TD-017 | Waitlist reorder (FR-ADMIN-023) and the conflicts view (FR-ADMIN-024) | Add with the admin dashboard work (Phase 11) |
 | TD-018 | Material ordering is by `position` within a folder but the UI has no drag-to-reorder yet | Add reordering with the student portal's materials view (Phase 8) |
+| TD-019 | A student may register for a course they are currently taking in another (unfinished) session; FR-REG-007 only blocks courses already passed | Decide with the registrar whether to block concurrent repeats (Phase 12 review) |
 | TD-013 | Section meetings run for the whole session (no per-meeting start/end dates) | Add `starts_on`/`ends_on` if half-session courses are needed |
 | TD-014 | Syllabus is rich text only; no syllabus file attachment yet | Add with course materials (Phase 7, file service exists) |
 | TD-015 | Room overlap is enforced in the service under a per-session advisory lock, not by a `btree_gist` exclusion constraint | Consider the constraint if schedules are ever written outside the API |
@@ -350,7 +360,17 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | Deleting a material deletes its stored object | Removed course content must not stay downloadable |
 | Announcement notifications have no link yet | Students get announcement pages in Phase 8; a link to a page that does not exist would be broken |
 
+## Phase 8 implementation decisions
+| Decision | Reason |
+|---|---|
+| Catalog and registration screens default to the session whose registration window is open (then upcoming, then active); the timetable defaults to the running session | Students register for next term while attending this one |
+| Each registration dialog generates one idempotency key | A double click or retried request returns the same registration (FR-REG-015) |
+| Progress counts each passed course once, in the first group it fits (all-of, then lists, then categories, then free credits) | Prevents double counting across requirement groups |
+| GPA uses every graded attempt; repeat policy (latest/best) is not configurable yet | FR-ACAD-008 lists the policy as configurable; it arrives with grading settings (Phase 10) |
+| Testing Library's async wait is 4 s in web tests | Lazy route chunks occasionally exceeded the 1 s default under parallel load |
+
 ## Changelog
+- 2026-11-20 — Phase 8 complete: student portal (catalog, course page with eligibility and registration, registrations, planner, timetable with iCal, progress, history, announcements, course pages); 457 unit/integration + 44 E2E runs.
 - 2026-11-20 — Phase 7 complete: faculty portal (dashboard, assignments, workspace, roster and export, materials with uploads, section announcements); 441 unit/integration + 42 E2E runs.
 - 2026-11-20 — Phase 6 complete: registration engine with eligibility, approvals, overrides, waitlists and offers, notifications, records and planner API, admin registration UI, seeded history and open registration; 414 unit/integration + 40 E2E runs. Fixed a database time-zone shift affecting every stored timestamp on non-UTC database servers.
 - 2026-11-20 — Phase 5 complete: course catalog, prerequisites, mappings, restrictions, classrooms, sections with conflict detection, roll-forward (API, admin UI, seed), 361 unit/integration + 38 E2E runs.

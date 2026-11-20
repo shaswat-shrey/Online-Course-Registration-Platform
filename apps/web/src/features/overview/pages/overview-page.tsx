@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLoginHistory, useSessions } from '@/features/account/api/account-queries';
+import { StudentDashboard } from '@/features/student/components/student-components';
 import { FacultyDashboard } from '@/features/teaching/components/teaching-components';
 import { useAuthStore } from '@/store/auth-store';
 import { formatDateTime, formatRelative, SCOPE_LABEL } from '@/utils/format';
@@ -34,10 +35,13 @@ export function OverviewPage({ portal }: { portal: Portal }) {
         description={
           portal === 'faculty'
             ? 'Your teaching this session.'
-            : 'Your account and access at a glance.'
+            : portal === 'student'
+              ? 'Your courses, registration and progress.'
+              : 'Your account and access at a glance.'
         }
       />
       {portal === 'faculty' && <FacultyDashboard />}
+      {portal === 'student' && <StudentDashboard />}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card>
           <CardHeader>

@@ -227,7 +227,9 @@ export function AnnouncementDialog({
   defaultSectionIds?: string[];
   trigger: Trigger;
 }) {
-  const sections = useMySections('current');
+  // Students registered for next session's sections can be reached too.
+  const current = useMySections('current');
+  const upcoming = useMySections('upcoming');
   const publish = usePublishAnnouncement();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -236,7 +238,7 @@ export function AnnouncementDialog({
   const [pinned, setPinned] = useState(false);
   const [chosen, setChosen] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const available = (sections.data ?? []).filter(
+  const available = [...(current.data ?? []), ...(upcoming.data ?? [])].filter(
     (s) => s.status === 'PUBLISHED' || s.status === 'CLOSED',
   );
   return (
@@ -326,13 +328,15 @@ export function AnnouncementDialog({
                 onCheckedChange={(v) =>
                   setChosen((all) => (v ? [...all, s.id] : all.filter((x) => x !== s.id)))
                 }
-                aria-label={`${s.course.code} ${s.sectionCode}`}
+                aria-label={`${s.course.code} ${s.sectionCode} (${s.session.name})`}
               />
               <span className="font-mono">
                 {s.course.code} {s.sectionCode}
               </span>{' '}
               {s.course.title}{' '}
-              <span className="text-xs text-muted-foreground">({s.enrolledCount} students)</span>
+              <span className="text-xs text-muted-foreground">
+                ({s.session.name}, {s.enrolledCount} students)
+              </span>
             </label>
           ))}
         </fieldset>

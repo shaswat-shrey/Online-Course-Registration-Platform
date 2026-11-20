@@ -27,7 +27,7 @@ test.describe('faculty portal', () => {
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Title').fill(title);
     await dialog.getByLabel('Message').fill('Bring your laptop to the next lab.');
-    await expect(dialog.getByRole('checkbox', { name: 'CS101 B' })).toBeChecked();
+    await expect(dialog.getByRole('checkbox', { name: 'CS101 B (Fall 2026)' })).toBeChecked();
     await dialog.getByRole('button', { name: 'Publish' }).click();
     await expect(page.getByText('Announcement published')).toBeVisible();
     await expect(page.getByRole('heading', { name: title })).toBeVisible();
