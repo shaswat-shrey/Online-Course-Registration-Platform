@@ -45,3 +45,23 @@ export async function pingRedis(): Promise<void> {
   const reply = await redis.ping();
   if (reply !== 'PONG') throw new Error(`Unexpected PING reply: ${reply}`);
 }
+
+/**
+ * Resolves once the cache client is connected, or after `timeoutMs` (returns
+ * false). The cache client fails fast while disconnected, so startup waits for
+ * it to avoid spurious 503s from fail-closed limiters right after boot.
+ */
+export async function waitForRedis(timeoutMs = 5000): Promise<boolean> {
+  if (redis.status === 'ready') return true;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      redis.off('ready', onReady);
+      resolve(false);
+    }, timeoutMs);
+    const onReady = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    redis.once('ready', onReady);
+  });
+}

@@ -5,6 +5,7 @@ const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
   REDIS_URL: 'redis://localhost:6379/0',
   STORAGE_SIGNING_SECRET: 'x'.repeat(40),
+  JWT_ACCESS_SECRET: 'j'.repeat(40),
 };
 
 describe('parseEnv', () => {

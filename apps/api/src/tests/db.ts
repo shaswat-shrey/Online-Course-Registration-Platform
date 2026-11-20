@@ -1,4 +1,6 @@
 import { prisma } from '../infrastructure/database/prisma.js';
+import { redis } from '../infrastructure/redis/redis.js';
+import { syncRbacCatalog } from '../modules/rbac/rbac.bootstrap.js';
 
 /** Truncates every application table (not Prisma's migration table). */
 export async function resetDatabase(): Promise<void> {
@@ -8,4 +10,14 @@ export async function resetDatabase(): Promise<void> {
   if (tables.length === 0) return;
   const list = tables.map((t) => `"public"."${t.tablename}"`).join(', ');
   await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
+}
+
+/**
+ * Fresh state for an integration test: empty tables, RBAC catalogue re-seeded,
+ * and the test Redis DB flushed (rate limits, caches, revocations, queues).
+ */
+export async function resetState(): Promise<void> {
+  await resetDatabase();
+  await redis.flushdb();
+  await syncRbacCatalog();
 }

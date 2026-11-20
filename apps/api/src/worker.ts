@@ -3,7 +3,7 @@ import { logger } from './config/logger.js';
 import { prisma } from './infrastructure/database/prisma.js';
 import { sendMail, type MailMessage } from './infrastructure/email/mailer.js';
 import { closeQueues, getQueue, QUEUE_PREFIX, QueueName } from './infrastructure/queues/queues.js';
-import { createQueueConnection, redis } from './infrastructure/redis/redis.js';
+import { createQueueConnection, redis, waitForRedis } from './infrastructure/redis/redis.js';
 
 /** Last time the worker ran its heartbeat; read by admin system alerts (Phase 11). */
 export const WORKER_HEARTBEAT_KEY = 'worker:heartbeat';
@@ -29,6 +29,7 @@ const processors: Partial<Record<QueueName, { processor: Processor; concurrency:
 };
 
 async function main() {
+  await waitForRedis(10_000);
   const workers = Object.entries(processors).map(([name, def]) => {
     const worker = new Worker(name, def.processor, {
       connection: createQueueConnection(`worker-${name}`),

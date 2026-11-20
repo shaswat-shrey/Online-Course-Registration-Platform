@@ -1,3 +1,6 @@
 export * from './api.js';
+export * from './auth.js';
 export * from './error-codes.js';
+export * from './permissions.js';
 export * from './query.js';
+export * from './roles.js';

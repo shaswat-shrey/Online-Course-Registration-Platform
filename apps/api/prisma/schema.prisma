@@ -30,3 +30,225 @@ model University {
 
   @@map("universities")
 }
+
+// ---------------------------------------------------------------------------
+// Identity and access (DATABASE.md §3.1, USER_ROLES_AND_PERMISSIONS.md)
+// ---------------------------------------------------------------------------
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum ScopeType {
+  GLOBAL
+  SCHOOL
+  DEPARTMENT
+}
+
+/// ORGANIZATIONAL roles grant powers over a scope (university/school/department).
+/// RELATIONSHIP roles (faculty, student) grant powers only over the holder's own
+/// sections and records; their grants never cover an organisational scope (ADR-014).
+enum RoleScopeMode {
+  ORGANIZATIONAL
+  RELATIONSHIP
+}
+
+enum AuthTokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+enum LoginOutcome {
+  SUCCESS
+  INVALID_CREDENTIALS
+  UNKNOWN_USER
+  LOCKED
+  INACTIVE
+}
+
+model User {
+  id                 String     @id @default(uuid(7)) @db.Uuid
+  email              String     @unique @db.Citext
+  /// Argon2id hash; null until an invited user sets a password.
+  passwordHash       String?    @map("password_hash")
+  firstName          String     @map("first_name") @db.VarChar(100)
+  lastName           String     @map("last_name") @db.VarChar(100)
+  status             UserStatus @default(INVITED)
+  emailVerifiedAt    DateTime?  @map("email_verified_at") @db.Timestamptz(3)
+  failedLoginCount   Int        @default(0) @map("failed_login_count")
+  /// Number of lockouts since the last successful login (drives exponential lock duration).
+  lockoutCount       Int        @default(0) @map("lockout_count")
+  lockedUntil        DateTime?  @map("locked_until") @db.Timestamptz(3)
+  lastLoginAt        DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  passwordChangedAt  DateTime?  @map("password_changed_at") @db.Timestamptz(3)
+  /// Incremented whenever roles/permissions change; stale access tokens are forced to refresh.
+  permissionsVersion Int        @default(1) @map("permissions_version")
+  mfaEnabled         Boolean    @default(false) @map("mfa_enabled")
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  roles         UserRole[]     @relation("UserRoles")
+  rolesAssigned UserRole[]     @relation("RoleAssigner")
+  sessions      Session[]
+  authTokens    AuthToken[]
+  loginAttempts LoginAttempt[]
+  auditLogs     AuditLog[]
+
+  @@index([status])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  key         String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  /// System roles cannot be deleted; only SUPER_ADMIN may edit their permissions.
+  isSystem    Boolean       @default(false) @map("is_system")
+  scopeMode   RoleScopeMode @default(ORGANIZATIONAL) @map("scope_mode")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String @id @default(uuid(7)) @db.Uuid
+  key         String @unique @db.VarChar(80)
+  resource    String @db.VarChar(50)
+  action      String @db.VarChar(50)
+  description String @db.VarChar(300)
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+/// Scoped role assignment. scope_id references a school or department depending on
+/// scope_type (polymorphic, validated in the service). Uniqueness with NULL scope is
+/// enforced by a raw-SQL NULLS NOT DISTINCT index.
+model UserRole {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  roleId       String    @map("role_id") @db.Uuid
+  scopeType    ScopeType @default(GLOBAL) @map("scope_type")
+  scopeId      String?   @map("scope_id") @db.Uuid
+  assignedById String?   @map("assigned_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user       User  @relation("UserRoles", fields: [userId], references: [id])
+  role       Role  @relation(fields: [roleId], references: [id])
+  assignedBy User? @relation("RoleAssigner", fields: [assignedById], references: [id])
+
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  ip           String?   @db.VarChar(45)
+  userAgent    String?   @map("user_agent") @db.VarChar(500)
+  deviceLabel  String?   @map("device_label") @db.VarChar(120)
+  rememberMe   Boolean   @default(false) @map("remember_me")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt   DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokeReason String?   @map("revoke_reason") @db.VarChar(50)
+
+  user          User           @relation(fields: [userId], references: [id])
+  refreshTokens RefreshToken[]
+
+  @@index([userId, revokedAt])
+  @@map("sessions")
+}
+
+/// Rotating refresh tokens; only SHA-256 hashes are stored (FR-AUTH-005).
+model RefreshToken {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  sessionId    String    @map("session_id") @db.Uuid
+  tokenHash    Bytes     @unique @map("token_hash")
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt       DateTime? @map("used_at") @db.Timestamptz(3)
+  replacedById String?   @map("replaced_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("refresh_tokens")
+}
+
+/// Single-use hashed tokens for invitations/email verification and password resets.
+model AuthToken {
+  id        String        @id @default(uuid(7)) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  type      AuthTokenType
+  tokenHash Bytes         @unique @map("token_hash")
+  expiresAt DateTime      @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime?     @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, type])
+  @@map("auth_tokens")
+}
+
+/// Login history (FR-AUTH-012). Unknown identifiers are not stored in clear text.
+model LoginAttempt {
+  id        BigInt       @id @default(autoincrement())
+  userId    String?      @map("user_id") @db.Uuid
+  outcome   LoginOutcome
+  ip        String?      @db.VarChar(45)
+  userAgent String?      @map("user_agent") @db.VarChar(500)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([ip, createdAt])
+  @@map("login_attempts")
+}
+
+/// Append-only audit trail (FR-AUDIT-*). No update/delete API exists.
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String   @db.VarChar(80)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String?  @map("entity_id") @db.VarChar(64)
+  /// Changed fields only, sensitive values redacted: { field: { from, to } } or event metadata.
+  changes    Json?
+  ip         String?  @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(500)
+  requestId  String?  @map("request_id") @db.VarChar(64)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}

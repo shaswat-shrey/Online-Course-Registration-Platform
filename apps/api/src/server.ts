@@ -4,12 +4,15 @@ import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { prisma } from './infrastructure/database/prisma.js';
 import { closeQueues } from './infrastructure/queues/queues.js';
-import { redis } from './infrastructure/redis/redis.js';
+import { redis, waitForRedis } from './infrastructure/redis/redis.js';
 import { attachSocketServer } from './infrastructure/sockets/socket-server.js';
 
 const SHUTDOWN_TIMEOUT_MS = 15_000;
 
 async function main() {
+  if (!(await waitForRedis(10_000))) {
+    logger.warn('Redis not reachable at startup; starting degraded (readiness will report down)');
+  }
   const app = createApp();
   const httpServer = createServer(app);
   const sockets = attachSocketServer(httpServer);

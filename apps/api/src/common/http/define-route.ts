@@ -1,6 +1,9 @@
 import type { NextFunction, RequestHandler, Response, Router } from 'express';
 import type { z } from 'zod';
 import { errorEnvelopeSchema, registry } from '../../openapi/registry.js';
+import type { PermissionKey } from '@ucrams/shared';
+import type { ActorContext } from '../context/actor.js';
+import { authenticate, requirePermission } from '../guards/authenticate.js';
 import { validate, type ValidatedRequest } from '../middleware/validate.js';
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
@@ -8,15 +11,16 @@ type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 /**
  * Route access declaration. Every route must state its access explicitly:
  * routes without one cannot be registered (default deny, SECURITY.md §7).
- * `authenticated` / `permission` are enforced from Phase 2.
+ * `permission` is a coarse check (held at any scope); services check scope.
  */
-export type RouteAccess = { public: true } | { authenticated: true } | { permission: string };
+export type RouteAccess =
+  { public: true } | { authenticated: true } | { permission: PermissionKey };
 
 type Infer<T> = T extends z.ZodType ? z.infer<T> : Record<string, never>;
 
 /** Handler receiving input typed from the route's Zod schemas. */
 export type TypedHandler<P, Q, B> = (
-  req: ValidatedRequest<Infer<P>, Infer<Q>, Infer<B>>,
+  req: ValidatedRequest<Infer<P>, Infer<Q>, Infer<B>> & { actor?: ActorContext },
   res: Response,
   next: NextFunction,
 ) => unknown;
@@ -94,6 +98,7 @@ export function defineRoute<
       description: spec.description,
       tags: spec.tags,
       security: 'public' in spec.access ? [] : [{ bearerAuth: [] }],
+      'x-required-permission': 'permission' in spec.access ? spec.access.permission : undefined,
       request: {
         params: spec.request?.params,
         query: spec.request?.query,
@@ -105,7 +110,11 @@ export function defineRoute<
     });
   }
 
+  // Authentication and authorization run before validation so unauthenticated
+  // callers learn nothing about the expected input.
   const chain: RequestHandler[] = [];
+  if (!('public' in spec.access)) chain.push(authenticate);
+  if ('permission' in spec.access) chain.push(requirePermission(spec.access.permission));
   if (spec.request) {
     chain.push(
       validate({ params: spec.request.params, query: spec.request.query, body: spec.request.body }),

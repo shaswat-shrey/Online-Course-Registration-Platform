@@ -42,6 +42,26 @@ export const envSchema = z
     S3_SECRET_KEY: z.string().optional(),
     S3_FORCE_PATH_STYLE: bool.default(true),
 
+    // Authentication (docs/SECURITY.md §2)
+    JWT_ACCESS_SECRET: z.string().min(32),
+    /** Previous signing secret, accepted for verification during key rotation. */
+    JWT_ACCESS_SECRET_PREVIOUS: z.string().min(32).optional(),
+    JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+    JWT_ISSUER: z.string().default('ucrams'),
+    REFRESH_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+    REFRESH_REMEMBER_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    REFRESH_REUSE_GRACE_SECONDS: z.coerce.number().int().min(0).max(60).default(10),
+    COOKIE_SECURE: bool.optional(),
+    LOCKOUT_THRESHOLD: z.coerce.number().int().min(1).default(5),
+    LOCKOUT_BASE_MINUTES: z.coerce.number().int().min(1).default(15),
+    LOCKOUT_MAX_MINUTES: z.coerce.number().int().min(1).default(1440),
+    RESET_TOKEN_TTL_MINUTES: z.coerce.number().int().min(5).max(1440).default(30),
+    INVITE_TOKEN_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(72),
+    ARGON2_MEMORY_KIB: z.coerce.number().int().min(8192).default(19456),
+    ARGON2_TIME_COST: z.coerce.number().int().min(1).default(2),
+    /** Public URL of the web app, used in email links. */
+    WEB_APP_URL: z.url().default('http://localhost:5173'),
+
     MAIL_TRANSPORT: z.enum(['smtp', 'log']).default('log'),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().int().default(1025),
@@ -61,7 +81,15 @@ export const envSchema = z
       ctx.addIssue({ code: 'custom', path: ['SMTP_HOST'], message: 'Required for smtp transport' });
     }
     if (env.NODE_ENV === 'production') {
+      if (env.COOKIE_SECURE === false) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['COOKIE_SECURE'],
+          message: 'Cookies must be Secure in production',
+        });
+      }
       const secrets = {
+        JWT_ACCESS_SECRET: env.JWT_ACCESS_SECRET,
         STORAGE_SIGNING_SECRET: env.STORAGE_SIGNING_SECRET,
         DATABASE_URL: env.DATABASE_URL,
         ...(env.STORAGE_DRIVER === 's3' ? { S3_SECRET_KEY: env.S3_SECRET_KEY ?? '' } : {}),
@@ -86,6 +114,11 @@ export const envSchema = z
   });
 
 export type Env = z.infer<typeof envSchema>;
+
+/** Secure cookies default to on in production and off for plain-HTTP local development. */
+export function cookieSecure(e: Env): boolean {
+  return e.COOKIE_SECURE ?? e.NODE_ENV === 'production';
+}
 
 export function parseEnv(source: NodeJS.ProcessEnv): Env {
   const result = envSchema.safeParse(source);

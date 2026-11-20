@@ -11,6 +11,9 @@ import { rateLimit } from './common/middleware/rate-limit.js';
 import { requestId } from './common/middleware/request-id.js';
 import { storage, LocalStorageService } from './infrastructure/storage/index.js';
 import { createLocalStorageRouter } from './infrastructure/storage/local-storage.routes.js';
+import { auditRouter } from './modules/audit/audit.routes.js';
+import { authRouter } from './modules/auth/auth.routes.js';
+import { rbacRouter } from './modules/rbac/rbac.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { universityRouter } from './modules/university/university.routes.js';
 import { generateOpenApiDocument } from './openapi/registry.js';
@@ -65,6 +68,9 @@ export function createApp(): Express {
   api.use(express.json({ limit: '1mb' }));
   api.use(cookieParser());
   api.use(universityRouter);
+  api.use(authRouter);
+  api.use(rbacRouter);
+  api.use(auditRouter);
   app.use(API_PREFIX, api);
 
   if (env.API_DOCS_ENABLED) {

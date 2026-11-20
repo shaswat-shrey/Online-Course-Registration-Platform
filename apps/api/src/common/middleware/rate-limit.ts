@@ -1,13 +1,15 @@
 import type { RequestHandler } from 'express';
 import { RateLimiterMemory, RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
 import { redis } from '../../infrastructure/redis/redis.js';
-import { RateLimitError } from '../exceptions/app-error.js';
+import { RateLimitError, ServiceUnavailableError } from '../exceptions/app-error.js';
+
+type Req = Parameters<RequestHandler>[0];
 
 interface LimiterOptions {
   name: string;
   points: number;
   durationSeconds: number;
-  key: (req: Parameters<RequestHandler>[0]) => string;
+  key: (req: Req) => string;
 }
 
 /**
@@ -40,6 +42,37 @@ export function rateLimit(options: LimiterOptions): RequestHandler {
         return next(new RateLimitError(Math.max(1, Math.ceil(err.msBeforeNext / 1000))));
       }
       next(err);
+    }
+  };
+}
+
+/**
+ * Fail-closed limiter for authentication endpoints: if Redis is unavailable the
+ * request is refused (503) rather than allowing unlimited guessing (SECURITY.md §8).
+ * Accepts several buckets (e.g. per IP and per IP+identifier); all must allow.
+ */
+export function strictRateLimit(buckets: LimiterOptions[]): RequestHandler {
+  const limiters = buckets.map(
+    (b) =>
+      [
+        b,
+        new RateLimiterRedis({
+          storeClient: redis,
+          keyPrefix: `rl:${b.name}`,
+          points: b.points,
+          duration: b.durationSeconds,
+        }),
+      ] as const,
+  );
+  return async (req, _res, next) => {
+    try {
+      for (const [bucket, limiter] of limiters) await limiter.consume(bucket.key(req));
+      next();
+    } catch (err) {
+      if (err instanceof RateLimiterRes) {
+        return next(new RateLimitError(Math.max(1, Math.ceil(err.msBeforeNext / 1000))));
+      }
+      next(new ServiceUnavailableError('Authentication is temporarily unavailable'));
     }
   };
 }

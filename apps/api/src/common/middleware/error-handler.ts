@@ -17,6 +17,17 @@ interface HttpLikeError {
 /** Errors thrown by body-parser etc. carry a status and are safe to map. */
 function fromHttpError(err: unknown): AppError | null {
   if (typeof err !== 'object' || err === null) return null;
+  // Prisma unique-constraint violation (race between check and insert): conflict, no internals.
+  if (
+    (err as { code?: unknown }).code === 'P2002' &&
+    (err as { name?: string }).name === 'PrismaClientKnownRequestError'
+  ) {
+    return new AppError(
+      409,
+      ErrorCode.UNIQUE_VIOLATION,
+      'A record with these values already exists',
+    );
+  }
   const e = err as HttpLikeError;
   const status = e.statusCode ?? e.status;
   if (!status || status < 400 || status >= 500) return null;

@@ -1,40 +1,120 @@
 /**
- * Idempotent development seed (DATABASE.md §9–10). Safe to run repeatedly.
- * Phase 1 seeds only the university profile; later phases extend this file.
+ * Idempotent development seed (DATABASE.md §9–10). Safe to run repeatedly:
+ * every record is looked up by a natural key before being created.
  */
 import 'dotenv/config';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../../src/generated/prisma/client.js';
-
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
-});
+import { RoleKey } from '@ucrams/shared';
+import { prisma } from '../../src/infrastructure/database/prisma.js';
+import { redis } from '../../src/infrastructure/redis/redis.js';
+import { closeQueues } from '../../src/infrastructure/queues/queues.js';
+import { hashPassword } from '../../src/modules/auth/password.js';
+import { invalidateAuthState } from '../../src/modules/authz/grants.service.js';
+import { syncRbacCatalog } from '../../src/modules/rbac/rbac.bootstrap.js';
 
 async function seedUniversity() {
-  const data = {
-    name: 'Northbridge University',
-    shortName: 'NBU',
-    timezone: 'Asia/Kolkata',
-    website: 'https://northbridge.example.edu',
-    contactEmail: 'registrar@northbridge.example.edu',
-    contactPhone: '+91 80 0000 0000',
-    address: '1 University Avenue, Bengaluru, India',
-    schoolLabel: 'Faculty',
-  };
   const existing = await prisma.university.findFirst({ orderBy: { createdAt: 'asc' } });
-  if (existing) {
-    console.warn(`University exists (${existing.shortName}); leaving it unchanged.`);
-    return;
+  if (existing) return;
+  await prisma.university.create({
+    data: {
+      name: 'Northbridge University',
+      shortName: 'NBU',
+      timezone: 'Asia/Kolkata',
+      website: 'https://northbridge.example.edu',
+      contactEmail: 'registrar@northbridge.example.edu',
+      contactPhone: '+91 80 0000 0000',
+      address: '1 University Avenue, Bengaluru, India',
+      schoolLabel: 'Faculty',
+    },
+  });
+  console.warn('Created university profile.');
+}
+
+/**
+ * Development accounts, one per role (README "Development credentials").
+ * The department administrator account is added with departments (structure seed).
+ */
+const DEV_ACCOUNTS = [
+  {
+    email: 'superadmin@ucrams.local',
+    firstName: 'Sam',
+    lastName: 'Superadmin',
+    role: RoleKey.SUPER_ADMIN,
+  },
+  {
+    email: 'uniadmin@ucrams.local',
+    firstName: 'Uma',
+    lastName: 'Universityadmin',
+    role: RoleKey.UNIVERSITY_ADMIN,
+  },
+  {
+    email: 'registrar@ucrams.local',
+    firstName: 'Riya',
+    lastName: 'Registrar',
+    role: RoleKey.ACADEMIC_ADMIN,
+  },
+  {
+    email: 'faculty.cs@ucrams.local',
+    firstName: 'Farhan',
+    lastName: 'Faculty',
+    role: RoleKey.FACULTY,
+  },
+  {
+    email: 'student.cs@ucrams.local',
+    firstName: 'Sara',
+    lastName: 'Student',
+    role: RoleKey.STUDENT,
+  },
+] as const;
+
+async function seedDevAccounts() {
+  const password = process.env.SEED_DEV_PASSWORD;
+  if (!password || password.length < 10) {
+    throw new Error(
+      'Set SEED_DEV_PASSWORD (>= 10 characters) in apps/api/.env to seed development accounts.',
+    );
   }
-  await prisma.university.create({ data });
-  console.warn(`Created university ${data.shortName}.`);
+  const passwordHash = await hashPassword(password);
+  for (const account of DEV_ACCOUNTS) {
+    const role = await prisma.role.findUniqueOrThrow({ where: { key: account.role } });
+    let user = await prisma.user.findUnique({ where: { email: account.email } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: account.email,
+          firstName: account.firstName,
+          lastName: account.lastName,
+          passwordHash,
+          status: 'ACTIVE',
+          emailVerifiedAt: new Date(),
+          passwordChangedAt: new Date(),
+        },
+      });
+      console.warn(`Created ${account.email} (${account.role}).`);
+    }
+    const hasRole = await prisma.userRole.findFirst({
+      where: { userId: user.id, roleId: role.id, scopeType: 'GLOBAL' },
+    });
+    if (!hasRole) {
+      await prisma.userRole.create({
+        data: { userId: user.id, roleId: role.id, scopeType: 'GLOBAL' },
+      });
+      await invalidateAuthState([user.id]);
+    }
+  }
 }
 
 async function main() {
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('The development seed must not run in production.');
+    throw new Error(
+      'The development seed must not run in production. Use `npm run bootstrap:admin`.',
+    );
   }
+  const rbac = await syncRbacCatalog({ resetSystemRoles: process.argv.includes('--reset-roles') });
+  console.warn(
+    `RBAC catalogue synced: ${rbac.permissions} permissions, ${rbac.rolesCreated} roles created.`,
+  );
   await seedUniversity();
+  await seedDevAccounts();
 }
 
 main()
@@ -42,4 +122,8 @@ main()
     console.error(err);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await closeQueues();
+    await prisma.$disconnect();
+    redis.disconnect();
+  });
