@@ -14,7 +14,9 @@ test-results/
 .claude/settings.local.json
 !.env.test
 **/generated/
-storage/
+# Runtime upload folders only (not src/infrastructure/storage).
+/apps/api/storage/
+/storage/
 .test-storage/
 !.env.docker.example
 backups/

@@ -3,7 +3,8 @@
 **/coverage
 **/.env
 **/generated
-**/storage
+apps/api/storage
+storage
 **/.test-storage
 .git
 playwright-report
