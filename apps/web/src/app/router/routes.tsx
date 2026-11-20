@@ -456,6 +456,29 @@ export const routes: RouteObject[] = [
           ]),
           portalRoutes('faculty', 'Faculty', [
             {
+              path: 'teaching',
+              handle: crumb('My teaching'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/teaching/pages/teaching-pages')).MyTeachingPage,
+              })),
+            },
+            {
+              path: 'sections/:sectionId',
+              handle: crumb('Section'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/teaching/pages/teaching-pages'))
+                  .SectionWorkspacePage,
+              })),
+            },
+            {
+              path: 'announcements',
+              handle: crumb('Announcements'),
+              lazy: lazyPage(async () => ({
+                default: (await import('@/features/teaching/pages/teaching-pages'))
+                  .FacultyAnnouncementsPage,
+              })),
+            },
+            {
               path: 'profile',
               handle: crumb('Profile'),
               lazy: lazyPage(async () => ({

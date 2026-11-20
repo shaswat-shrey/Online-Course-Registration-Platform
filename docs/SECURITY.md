@@ -110,8 +110,8 @@ See SRS FR-FILE-*. Additionally: `Content-Disposition: attachment` for non-image
 | RBAC guards + scope policies + default-deny test | 2 | Done (incl. OWN-scoped relationship grants, escalation guard) |
 | Audit log | 2 | Done (transactional writes, filtered read API) |
 | MFA (TOTP) | — | Planned (Should); model field present |
-| File validation + signed URLs | 4, 7 | Done for avatars and imports (size limits, magic-byte type check, HMAC-signed short-lived URLs, abandoned uploads purged); course materials in Phase 7 |
+| File validation + signed URLs | 4, 7 | Done for avatars, imports and course materials (size limits, magic-byte type check, HMAC-signed short-lived URLs issued after a membership check, abandoned uploads purged, deleted materials remove their objects) |
 | Personal data minimisation | 4 | Done: contact details and hold reasons only for the student or `student:read_sensitive`; public faculty directory exposes directory fields only |
 | Rich-text sanitization | 9 | Planned |
-| CSV-injection escaping | 11 | Planned (imports only read CSV; exports arrive in Phase 11) |
+| CSV-injection escaping | 7, 11 | Done for the roster export (Phase 7); report exports in Phase 11 reuse the same helper |
 | Full OWASP review + fixes | 12 | Planned |

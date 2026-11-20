@@ -1,7 +1,7 @@
 # Development Roadmap
 
-**Current phase:** Phase 6 — Registration engine (**complete**, 2026-11-20)
-**Next phase:** Phase 7 — Faculty portal
+**Current phase:** Phase 7 — Faculty portal (**complete**, 2026-11-20)
+**Next phase:** Phase 8 — Student portal
 
 Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 
@@ -153,8 +153,23 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - Waitlist reordering by administrators (FR-ADMIN-023 "reorder with override") and the conflicts view (FR-ADMIN-024) are not built yet; registrations created with overrides are filterable.
 
 ## Phase 7 — Faculty portal
-- [ ] Dashboard, profile, assignments, course workspace, roster (+export), schedule, materials (file service), section announcements, messaging entry points, feedback/ticket entry points
-- [ ] Tests + E2E steps 11–13
+- [x] Models: SectionMaterial (file or link, folder, position, published), Announcement + AnnouncementAudience (section audiences now; more audience types in Phase 9)
+- [x] Access through the instructor relationship (any instructor role) or an organisational grant covering the course's department; sections the caller has no relationship with return 404
+- [x] Dashboard (FR-FACULTY-001): sections this session with fill, students taught, today's classes in the university time zone, weekly schedule, load vs limit, sections next session, recent announcements
+- [x] Teaching assignments (current, upcoming, past) and course workspace (course content, schedule, class statistics by status, program and year)
+- [x] Roster with search and status filter, academic-only student profile (no contact, address or holds), CSV export with formula neutralisation (audited)
+- [x] Materials: uploads in a new MATERIAL context (PDF, Office, images, ZIP; 50 MB; content-sniffed), links, folders, publish/unpublish, delete (removes the stored file), signed downloads only for instructors, administrators in scope and registered students; MATERIAL uploads need `material:manage`
+- [x] Section announcements to one or several of the author's running sections; enrolled students and co-instructors are notified; authors edit and delete their own
+- [x] Web: faculty overview with the teaching dashboard, My teaching, section workspace (overview, roster with student sheet and export, materials, announcements), announcements page with composer
+- [x] Seed: reading-list links and two announcements for the dev faculty account
+- [x] Tests: API +22 (347), shared +2 (41), web +3 (53), E2E +2 (42 runs: journey steps 11–13)
+
+**Verified manually (browser):** faculty dashboard with live data (today's classes on Friday in IST), roster and student sheet, file upload through intent → upload → content check → publish, deletion.
+
+**Deferred, by design:**
+- Messaging, section discussions, feedback and tickets (FR-FACULTY-009/010) arrive with communication (Phase 9); attendance, assessments and grade summaries on the roster with academics (Phase 10). Their navigation entries are not shown until they work.
+- Announcement read tracking, scheduling and wider audiences arrive in Phase 9.
+
 
 ## Phase 8 — Student portal
 - [ ] Dashboard, catalog search, course detail with eligibility, registration flow, planner, registered courses, waitlist, timetable, progress, history, notifications, profile
@@ -236,6 +251,7 @@ _None known._ (Fixed in Phase 6: timestamps shifted by the database server's tim
 | TD-010 | ~~"New department" shown to department-scoped admins~~ | **Resolved in Phase 4** (`grants` in `/auth/me`, `useCanAt`) |
 | TD-016 | Idempotency is backed by the registration row (`student_id`, `idempotency_key`), so a replayed *failed* attempt is re-evaluated instead of returning the first error | Cache full responses in Redis for 24 h if clients need exact replays of failures |
 | TD-017 | Waitlist reorder (FR-ADMIN-023) and the conflicts view (FR-ADMIN-024) | Add with the admin dashboard work (Phase 11) |
+| TD-018 | Material ordering is by `position` within a folder but the UI has no drag-to-reorder yet | Add reordering with the student portal's materials view (Phase 8) |
 | TD-013 | Section meetings run for the whole session (no per-meeting start/end dates) | Add `starts_on`/`ends_on` if half-session courses are needed |
 | TD-014 | Syllabus is rich text only; no syllabus file attachment yet | Add with course materials (Phase 7, file service exists) |
 | TD-015 | Room overlap is enforced in the service under a per-session advisory lock, not by a `btree_gist` exclusion constraint | Consider the constraint if schedules are ever written outside the API |
@@ -324,7 +340,18 @@ See [ARCHITECTURE.md §15](ARCHITECTURE.md#15-architecture-decision-records-summ
 | Pending registrations hold a seat (counted in `enrolledCount`) | FR-REG-016: approval must not be able to oversubscribe a section |
 | Spring 2027 registration opens on 18 Nov 2026 in the seed, with cross-department approval | The seeded "today" needs an open window to exercise the engine |
 
+## Phase 7 implementation decisions
+| Decision | Reason |
+|---|---|
+| Faculty access = (permission at any scope, including OWN) **and** an instructor row on the section; administrators need an organisational grant covering the department | ADR-014: relationship permissions never cover organisational targets on their own |
+| Sections a caller has no relationship with return 404, not 403 | API.md §5: do not reveal resources the caller may not know about |
+| Teaching assistants see the roster and materials like other instructors | The SRS does not restrict TAs; load counting already excludes them |
+| CSV export prefixes cells starting with `= + - @`, tab or CR with `'` and quotes every cell; UTF-8 BOM for spreadsheet apps | SECURITY.md §6 CSV-injection protection |
+| Deleting a material deletes its stored object | Removed course content must not stay downloadable |
+| Announcement notifications have no link yet | Students get announcement pages in Phase 8; a link to a page that does not exist would be broken |
+
 ## Changelog
+- 2026-11-20 — Phase 7 complete: faculty portal (dashboard, assignments, workspace, roster and export, materials with uploads, section announcements); 441 unit/integration + 42 E2E runs.
 - 2026-11-20 — Phase 6 complete: registration engine with eligibility, approvals, overrides, waitlists and offers, notifications, records and planner API, admin registration UI, seeded history and open registration; 414 unit/integration + 40 E2E runs. Fixed a database time-zone shift affecting every stored timestamp on non-UTC database servers.
 - 2026-11-20 — Phase 5 complete: course catalog, prerequisites, mappings, restrictions, classrooms, sections with conflict detection, roll-forward (API, admin UI, seed), 361 unit/integration + 38 E2E runs.
 - 2026-11-20 — Phase 4 complete: students, faculty, administrators, holds, bulk import, avatars and profiles (API, admin UI, portals, seed), 304 unit/integration + 34 E2E runs.

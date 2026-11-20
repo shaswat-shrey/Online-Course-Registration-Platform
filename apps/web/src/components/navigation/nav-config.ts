@@ -11,6 +11,7 @@ import {
   KeyRound,
   Landmark,
   LayoutDashboard,
+  Megaphone,
   Percent,
   School,
   ShieldCheck,
@@ -106,6 +107,18 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
     {
       label: 'General',
       items: [{ label: 'Overview', to: '/faculty/dashboard', icon: LayoutDashboard }],
+    },
+    {
+      label: 'Teaching',
+      items: [
+        { label: 'My teaching', to: '/faculty/teaching', icon: BookOpen },
+        {
+          label: 'Announcements',
+          to: '/faculty/announcements',
+          icon: Megaphone,
+          permission: 'announcement:publish_section',
+        },
+      ],
     },
     {
       label: 'Account',

@@ -2,6 +2,8 @@
 
 > Status: identity, access and audit tables **implemented (Phase 2)**; structure and calendar tables **implemented (Phase 3)**; everything else is design. Changes during implementation are reflected here.
 >
+> Phase 7 added `section_materials` (CHECK: file xor link) and `announcements` with `announcement_audiences` (section audiences; more types in Phase 9).
+>
 > Phase 6 added `course_registrations` (trigger keeps course/session equal to the section; partial unique index on active attempts), `registration_events`, `registration_requests`, `academic_records`, `course_plans`/`course_plan_items` and `notifications`. Connections pin `TimeZone=UTC` so `timestamptz` values do not depend on the server's zone.
 >
 > Phase 5 added courses (generated `search_vector`), outcomes, assessment components, prerequisite groups/items, corequisites, program/specialization mappings, restrictions, requirement courses, classrooms, sections (with `schedule_override_reason`), meetings and instructors. Meetings have no own date range yet (they span the session).
