@@ -175,6 +175,17 @@ function visibilityWhere(actor: ActorContext): Prisma.CourseSectionWhereInput {
     OR: [
       { status: 'PUBLISHED', course: { status: 'ACTIVE' } },
       { instructors: { some: { facultyMember: { userId: actor.userId } } } },
+      // Students keep seeing sections they hold (or held) a place in, even once closed or completed.
+      {
+        registrations: {
+          some: {
+            student: { userId: actor.userId },
+            status: {
+              in: ['PENDING', 'REGISTERED', 'OFFERED', 'WAITLISTED', 'COMPLETED', 'WITHDRAWN'],
+            },
+          },
+        },
+      },
     ],
   };
 }

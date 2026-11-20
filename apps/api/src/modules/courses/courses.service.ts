@@ -206,7 +206,7 @@ async function detailDto(c: DetailRow, actor: ActorContext) {
  * Ranked full-text + trigram search over code/title/description (DATABASE.md §5).
  * Returns ids in relevance order (capped).
  */
-async function searchCourseIds(q: string): Promise<string[]> {
+export async function searchCourseIds(q: string): Promise<string[]> {
   const rows = await prisma.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM courses
     WHERE search_vector @@ websearch_to_tsquery('english', ${q})

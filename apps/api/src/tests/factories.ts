@@ -255,7 +255,7 @@ export async function createSection(
   sessionId: string,
   overrides: {
     sectionCode?: string;
-    status?: 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'CANCELLED';
+    status?: 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'CANCELLED' | 'COMPLETED';
     capacity?: number;
     meetings?: Array<{
       dayOfWeek: number;

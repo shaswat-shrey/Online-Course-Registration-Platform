@@ -121,12 +121,13 @@ export async function createAnnouncement(
       ...instructors.map((i) => i.facultyMember.userId),
     ]);
     recipients.delete(actor.userId);
+    const studentIds = new Set(students.map((s) => s.student.userId));
     const notices: NewNotification[] = [...recipients].map((userId) => ({
       userId,
       category: 'ANNOUNCEMENT',
       title: `${input.priority === 'URGENT' ? 'Urgent: ' : ''}${input.title}`,
       body: `${labels}: ${input.body.slice(0, 300)}`,
-      link: null,
+      link: studentIds.has(userId) ? '/student/announcements' : null,
     }));
     after = await queueNotifications(tx, notices);
     await recordAudit(
