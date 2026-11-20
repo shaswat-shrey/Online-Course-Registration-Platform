@@ -11,10 +11,11 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import type { ActorContext } from '../../common/context/actor.js';
 import { BusinessRuleError } from '../../common/exceptions/app-error.js';
 import { enqueueEmail } from '../../infrastructure/email/outbox.js';
-import { notificationEmail } from '../../infrastructure/email/templates.js';
+import { digestEmail, notificationEmail } from '../../infrastructure/email/templates.js';
 import { paging } from '../../common/http/list-query.js';
 import { logger } from '../../config/logger.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
+import { getSetting } from '../platform/settings.service.js';
 import { getSocketEmitter, userRoom } from '../../infrastructure/sockets/socket-emitter.js';
 
 export type NotificationCategory = Prisma.NotificationCreateManyInput['category'];
@@ -72,15 +73,18 @@ export async function queueNotifications(
   const users = byEmail.length
     ? await tx.user.findMany({
         where: { id: { in: [...new Set(byEmail.map((i) => i.userId))] }, status: 'ACTIVE' },
-        select: { id: true, email: true, firstName: true },
+        select: { id: true, email: true, firstName: true, emailDigest: true },
       })
     : [];
   const recipients = new Map(users.map((u) => [u.id, u]));
+  // Digest users get mandatory and urgent notices now; the rest wait for the daily digest.
+  const immediate = (i: NewNotification, digest: boolean) =>
+    !digest || opts.forceEmail || (MANDATORY_CHANNELS[i.category]?.includes('EMAIL') ?? false);
   return () => {
     pushNotifications(inApp);
     for (const i of byEmail) {
       const u = recipients.get(i.userId);
-      if (u)
+      if (u && immediate(i, u.emailDigest))
         void enqueueEmail(
           notificationEmail(u.email, u.firstName, i.title, i.body, i.link ?? null),
           `notification:${i.category.toLowerCase()}`,
@@ -216,8 +220,85 @@ export async function markRead(actor: ActorContext, input: { ids?: string[]; all
 }
 
 /** Notifications older than 180 days are removed (FR-NOTIF-003). */
-export async function purgeOldNotifications(days = 180) {
+export async function purgeOldNotifications(days?: number): Promise<number> {
+  days ??= await getSetting('notifications.retentionDays');
   const cutoff = new Date(Date.now() - days * 24 * 3600_000);
   const result = await prisma.notification.deleteMany({ where: { createdAt: { lt: cutoff } } });
   return result.count;
+}
+
+// ----- daily digest (FR-NOTIF-006) --------------------------------------------------------
+
+const DAY_MS = 24 * 3600_000;
+
+export async function getDigest(actor: ActorContext) {
+  const u = await prisma.user.findUniqueOrThrow({
+    where: { id: actor.userId },
+    select: { emailDigest: true, lastDigestAt: true },
+  });
+  return { enabled: u.emailDigest, lastSentAt: u.lastDigestAt?.toISOString() ?? null };
+}
+
+export async function setDigest(actor: ActorContext, enabled: boolean) {
+  await prisma.user.update({
+    where: { id: actor.userId },
+    // Starting now means the first digest covers only what arrives from here on.
+    data: { emailDigest: enabled, ...(enabled ? { lastDigestAt: new Date() } : {}) },
+  });
+  return getDigest(actor);
+}
+
+/**
+ * Hourly job: every digest user whose last digest is a day old gets one email
+ * listing the notifications they would otherwise have been emailed (unread,
+ * email channel on, not already sent immediately). Nothing to report: no email.
+ */
+export async function sendDigests(now = new Date()) {
+  const due = await prisma.user.findMany({
+    where: {
+      emailDigest: true,
+      status: 'ACTIVE',
+      OR: [
+        { lastDigestAt: null },
+        { lastDigestAt: { lte: new Date(now.getTime() - DAY_MS + 60_000) } },
+      ],
+    },
+    select: { id: true, email: true, firstName: true, lastDigestAt: true },
+    take: 500,
+  });
+  let sent = 0;
+  for (const u of due) {
+    const since = u.lastDigestAt ?? new Date(now.getTime() - DAY_MS);
+    const rows = await prisma.notification.findMany({
+      where: { userId: u.id, readAt: null, createdAt: { gt: since, lte: now } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    const enabled = await deliveryChannels(
+      prisma,
+      [u.id],
+      rows.map((r) => r.category),
+    );
+    const items = rows.filter(
+      (r) =>
+        enabled(u.id, r.category, 'EMAIL') &&
+        !(MANDATORY_CHANNELS[r.category]?.includes('EMAIL') ?? false),
+    );
+    // Claim first so two workers never send the same digest.
+    const claimed = await prisma.user.updateMany({
+      where: { id: u.id, lastDigestAt: u.lastDigestAt },
+      data: { lastDigestAt: now },
+    });
+    if (!claimed.count || !items.length) continue;
+    await enqueueEmail(
+      digestEmail(
+        u.email,
+        u.firstName,
+        items.map((i) => ({ title: i.title, body: i.body, link: i.link })),
+      ),
+      'notification:digest',
+    );
+    sent++;
+  }
+  return { users: due.length, sent };
 }

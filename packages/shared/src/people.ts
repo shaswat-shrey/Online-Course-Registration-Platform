@@ -275,6 +275,16 @@ export const FILE_LIMITS = {
       'image/webp',
     ],
   },
+  /** Administrative documents (policies, forms, handbooks). */
+  DOCUMENT: {
+    maxBytes: 25 * 1024 * 1024,
+    mimeTypes: [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ],
+  },
   TICKET: {
     maxBytes: 10 * 1024 * 1024,
     mimeTypes: [

@@ -4,7 +4,7 @@ import { ErrorState, LoadingRows } from '@/components/shared/states';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { errorMessage } from '@/services/api-error';
-import { usePreferences, useSavePreference } from '../api/queries';
+import { useDigest, usePreferences, useSaveDigest, useSavePreference } from '../api/queries';
 import { CATEGORY_NOTIFICATION_LABEL } from '../api/types';
 
 const CHANNEL_LABEL = { IN_APP: 'In the portal', EMAIL: 'Email' } as const;
@@ -13,6 +13,8 @@ const CHANNEL_LABEL = { IN_APP: 'In the portal', EMAIL: 'Email' } as const;
 export function NotificationPreferencesCard() {
   const prefs = usePreferences();
   const save = useSavePreference();
+  const digest = useDigest();
+  const saveDigest = useSaveDigest();
   return (
     <Card>
       <CardHeader>
@@ -22,7 +24,27 @@ export function NotificationPreferencesCard() {
           always sent.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <label className="flex items-start gap-3 rounded-md border p-3 text-sm">
+          <Switch
+            checked={digest.data?.enabled ?? false}
+            disabled={!digest.data || saveDigest.isPending}
+            onCheckedChange={(enabled) =>
+              saveDigest.mutate(enabled, {
+                onSuccess: () =>
+                  toast.success(enabled ? 'Daily summary on' : 'Emails will arrive as they happen'),
+                onError: (e) => toast.error(errorMessage(e)),
+              })
+            }
+          />
+          <span>
+            <span className="font-medium">Daily email summary</span>
+            <span className="block text-muted-foreground">
+              Collect emails into one message a day. Registration, waitlist and urgent notices still
+              arrive straight away.
+            </span>
+          </span>
+        </label>
         {prefs.isPending ? (
           <LoadingRows rows={4} />
         ) : prefs.isError ? (

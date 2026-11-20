@@ -7,7 +7,8 @@ COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
-RUN npm ci --workspace @ucrams/shared --workspace @ucrams/web --include-workspace-root
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --fetch-retries=5 --fetch-retry-maxtimeout=120000 --workspace @ucrams/shared --workspace @ucrams/web --include-workspace-root
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/web apps/web

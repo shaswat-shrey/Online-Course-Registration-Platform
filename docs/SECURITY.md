@@ -91,7 +91,7 @@ See SRS FR-FILE-*. Additionally: `Content-Disposition: attachment` for non-image
 | A04 Insecure Design | Threat model, registration engine designed for concurrency, business rules server-side, SRS edge cases |
 | A05 Security Misconfiguration | Helmet, CORS allow-list, env validation, docs disabled in prod, minimal container images, non-root containers |
 | A06 Vulnerable Components | `npm audit` in CI, Dependabot/Renovate, pinned lockfile |
-| A07 Identification & Auth Failures | Lockout, rate limits, rotation + reuse detection, session revocation, MFA-ready |
+| A07 Identification & Auth Failures | Lockout, rate limits, rotation + reuse detection, session revocation, optional TOTP two-factor sign-in |
 | A08 Software & Data Integrity | Lockfile, CI-built images, signed migrations in repo, no dynamic code loading |
 | A09 Logging & Monitoring Failures | Structured logs, audit log, security events, failed-job alerts |
 | A10 SSRF | No user-supplied URL fetching; course material external links are stored and rendered only, never fetched server-side |
@@ -109,7 +109,7 @@ See SRS FR-FILE-*. Additionally: `Content-Disposition: attachment` for non-image
 | Rate limiting (Redis) | 1–2 | Done: global (fail-open with insurance) and auth (fail-closed, hashed identifiers) |
 | RBAC guards + scope policies + default-deny test | 2 | Done (incl. OWN-scoped relationship grants, escalation guard) |
 | Audit log | 2 | Done (transactional writes, filtered read API) |
-| MFA (TOTP) | — | Planned (Should); model field present |
+| MFA (TOTP) | — | Implemented: optional per user, recovery codes, admin reset |
 | File validation + signed URLs | 4, 7 | Done for avatars, imports and course materials (size limits, magic-byte type check, HMAC-signed short-lived URLs issued after a membership check, abandoned uploads purged, deleted materials remove their objects) |
 | Personal data minimisation | 4 | Done: contact details and hold reasons only for the student or `student:read_sensitive`; public faculty directory exposes directory fields only |
 | Rich-text sanitization | 9 | Planned |

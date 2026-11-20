@@ -18,7 +18,7 @@ flowchart LR
   end
   PG[(PostgreSQL<br/>system of record)]
   REDIS[(Redis<br/>cache, rate limit, queues,<br/>Socket.IO adapter)]
-  S3[(S3-compatible storage<br/>MinIO in dev)]
+  S3[(Object storage<br/>local volume or S3/R2)]
   SMTP[SMTP<br/>Mailpit in dev]
 
   WEB -->|HTTPS| NGINX --> API
@@ -51,7 +51,7 @@ Both share the same modules, so the business logic lives in exactly one place. W
 ├── packages/
 │   └── shared/              Zod schemas, enums, permission keys, error codes, DTO types
 ├── docker/                  Dockerfiles, nginx.conf
-├── docker-compose.yml       postgres, redis, minio, mailpit (+ api, worker, web in prod profile)
+├── docker-compose.yml       postgres, redis, mailpit (+ migrate, api, worker, web in the app profile)
 ├── docs/
 └── package.json             workspaces, root scripts
 ```
@@ -89,7 +89,7 @@ src/
 │   ├── database/            Prisma client singleton, transaction helper, prisma/ (schema, migrations, seed)
 │   ├── redis/               ioredis clients (cache, queue, pubsub), cache helper
 │   ├── queues/              queue definitions, default job options, worker factory
-│   ├── storage/             StorageService interface; S3 (MinIO) implementation; local-fs implementation for tests
+│   ├── storage/             StorageService interface; S3 implementation; local-fs implementation for tests
 │   ├── email/               mailer + templates
 │   └── sockets/             Socket.IO server, auth handshake, rooms, emitter
 └── tests/
@@ -185,7 +185,7 @@ sequenceDiagram
 - Access tokens are JWT (ES256 or HS256 via `jose`; ES256 preferred in production with key rotation by `kid`).
 - Session revocation must take effect before access-token expiry: revoked session IDs go into a Redis set with TTL = access-token lifetime, checked by `authenticate`. If Redis is down, the middleware falls back to a DB lookup of the session.
 - **CSRF:** the refresh cookie is `SameSite=Strict`, path-scoped, and the refresh/logout endpoints additionally require a custom header (`X-CSRF-Token` double-submit value from a non-HttpOnly `csrf` cookie). All other endpoints use bearer tokens, which are not sent automatically by browsers, so they are not CSRF-exposed.
-- **MFA-ready:** login returns `{ mfaRequired: true, mfaToken }` (5-min, single purpose) when enabled; `/auth/mfa/verify` completes the session. TOTP implementation is a Should item.
+- **Two-factor sign-in:** when enabled, login returns `{ mfaRequired: true, challengeToken }` (Redis, 5 min, single use, 5 attempts); `/auth/mfa/verify` with a TOTP or recovery code completes the session.
 
 ## 7. Authorization architecture
 
@@ -267,13 +267,13 @@ Failed jobs are retained (last 1,000), surfaced on the admin dashboard as system
 ## 12. File storage architecture
 
 - `StorageService` interface: `createUploadUrl`, `headObject`, `getDownloadUrl`, `delete`, `putObject` (server-side generated files).
-- Implementations: S3 (AWS SDK v3, works with MinIO/R2/S3) and a local filesystem driver (development and tests) whose presigned URLs are HMAC-signed tokens served by `/api/v1/storage/local/:token`.
+- Implementations: S3 (AWS SDK v3, works with S3/R2 and other S3-compatible services) and a local filesystem driver (development and tests) whose presigned URLs are HMAC-signed tokens served by `/api/v1/storage/local/:token`.
 - Upload flow: `POST /files/upload-intents {context, contextId, filename, size, mimeType}` → permission + allow-list check → `StoredFile` row `PENDING` + presigned PUT (max size enforced through signed content-length) → client uploads → `POST /files/{id}/complete` → server fetches the first bytes, sniffs magic number (`file-type`), checks size, sets `READY`. Unreferenced `PENDING` files are purged after 24 h.
 - Downloads: `GET /files/{id}/download` → policy check by context → 302 to a 5-minute signed GET URL with `Content-Disposition: attachment` for non-image types.
 
 ## 13. Deployment architecture
 
-- **Containers:** `api`, `worker`, `web` (Nginx serving the built SPA and proxying `/api` and `/socket.io`), `postgres`, `redis`, `minio`, `mailpit` (dev only).
+- **Containers:** `api`, `worker`, `web` (Nginx serving the built SPA and proxying `/api` and `/socket.io`), `postgres`, `redis`, `mailpit` (dev only); files on a `storage` volume.
 - **Environments:** development (compose infra + local `npm run dev`), CI (compose services), production (compose or any container orchestrator; managed Postgres/Redis/S3 recommended).
 - **Migrations:** `prisma migrate deploy` runs as a one-off release step before new API/worker containers start.
 - **Config:** 12-factor env vars validated at boot with Zod; the process exits on invalid config.

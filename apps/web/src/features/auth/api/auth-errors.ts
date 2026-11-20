@@ -17,6 +17,10 @@ export function authErrorMessage(error: unknown): string {
       return 'This account is not active. Contact the administration office.';
     case ErrorCode.RATE_LIMITED:
       return 'Too many attempts. Please wait a few minutes and try again.';
+    case ErrorCode.MFA_INVALID:
+      return 'That code is not valid. Enter the current code from your authenticator app, or a recovery code.';
+    case ErrorCode.MFA_CHALLENGE_EXPIRED:
+      return 'The sign-in took too long. Enter your password again.';
     case ErrorCode.SERVICE_UNAVAILABLE:
       return 'Sign-in is temporarily unavailable. Please try again shortly.';
     default:

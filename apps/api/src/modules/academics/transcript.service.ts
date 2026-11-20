@@ -108,6 +108,7 @@ export async function buildTranscript(studentId: string) {
     source: string;
     repeatedLater: boolean;
     version: number;
+    institution: string | null;
   };
   const sessions = new Map<
     string,
@@ -141,6 +142,7 @@ export async function buildTranscript(studentId: string) {
       source: r.source,
       repeatedLater: superseded.has(r.id),
       version: r.version,
+      institution: r.externalInstitution,
     });
   }
   for (const w of withdrawn)
@@ -157,6 +159,7 @@ export async function buildTranscript(studentId: string) {
       source: 'ENROLLMENT',
       repeatedLater: false,
       version: 1,
+      institution: null,
     });
   const kept = rows.filter((r) => !superseded.has(r.id));
   return {

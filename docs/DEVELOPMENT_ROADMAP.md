@@ -66,7 +66,7 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 **Deferred, by design:**
 - Scoped (school/department) role assignment returns "Unknown school/department" until those tables exist (Phase 3); the department-admin dev account is created then.
 - User-level admin endpoints (sessions, unlock, role listing) require university-wide grants until users have departments (Phase 4).
-- MFA (TOTP) remains a Should item; the model has `mfaEnabled`.
+- MFA (TOTP) was implemented after Phase 13 (see *Known gaps closed*).
 - Socket.IO client in the web app is added with real-time features (Phase 9). ✅ Done in Phase 9.
 
 ## Phase 3 — University structure
@@ -252,7 +252,12 @@ Status legend: `[x]` done and verified · `[ ]` pending · `[~]` in progress
 - [x] Fixed during final verification: a sender's read pointer used the client clock and could trail their own message's database time, which occasionally suppressed the "new reply" notification (regression test added); the E2E navigation helper now waits for the phone navigation sheet to settle
 - [x] Final verification: typecheck, lint, format, production build, API 1,051 · shared 48 · web 60 unit/integration tests and 54 E2E runs (desktop + mobile), all passing
 
-**Not verified (no Docker on the development machine):** `docker compose --profile app up` end to end; CI builds both images on every push.
+## Known gaps closed (after Phase 13)
+- [x] Two-factor sign-in (TOTP, RFC 6238): enrolment with QR code, ten single-use recovery codes, replay protection, a 5-minute sign-in challenge with five attempts, turn off with password + code, administrator reset; secrets encrypted with AES-256-GCM (`MFA_ENCRYPTION_KEY`)
+- [x] Transfer credits and exemptions (TD-022): `POST /students/{id}/records` and a form on the student transcript page; shown with the institution on transcripts; never counted in the GPA
+- [x] Email digest (TD-020): per-user preference; the hourly `email-digest` job sends one summary of unread notifications; mandatory emails still go out immediately
+- [x] Global search, system settings, background jobs and administrative documents (TD-023): APIs, header search (⌘K), Settings, Background jobs and Documents pages, portal banner
+- [x] Docker: MinIO removed (images no longer published); one API image shared by migrate/api/worker; npm cache mounts and retries in the Dockerfiles
 
 ---
 
@@ -297,7 +302,7 @@ _None known._ (Fixed in Phase 6: timestamps shifted by the database server's tim
 |---|---|---|
 | TD-001 | Root `overrides` pins `effect@3.22.5` under `@prisma/config` to fix GHSA-7589-6fvf-x4pw (ReDoS) in Prisma 7.10.1's CLI config loader; `npm ls` reports it as "invalid" | Remove when Prisma ships a patched release |
 | TD-002 | Web entry chunk is ~610 kB (191 kB gzip); Vite warns above 500 kB | Split per portal with lazy routes + `manualChunks` once portals exist (Phase 2/7/8) |
-| TD-003 | S3 presigned URLs use `S3_ENDPOINT`; inside Compose that is `http://minio:9000`, which browsers cannot reach | Add `S3_PUBLIC_ENDPOINT` for presigning when uploads land (Phase 4/7) |
+| TD-003 | ~~MinIO presigned URLs unreachable from browsers~~ | **Obsolete:** MinIO removed from Compose (its images are no longer published); Compose uses the local driver on a volume, production uses S3/R2 |
 | TD-004 | Docker Compose stack and images not yet exercised locally | First CI run builds images; full stack check in Phase 13 or when Docker is available |
 | TD-005 | The `local` storage driver is allowed with `NODE_ENV=production` | Decide in Phase 13: refuse it, or support single-server deployments explicitly |
 | TD-006 | If Redis is down while a session is revoked, the revocation is only in the DB; the session's access token stays valid until it expires (≤ 15 min) | Accept (documented), or add a short DB check fallback when Redis was recently unavailable (Phase 12 review) |
@@ -307,10 +312,10 @@ _None known._ (Fixed in Phase 6: timestamps shifted by the database server's tim
 | TD-016 | Idempotency is backed by the registration row (`student_id`, `idempotency_key`), so a replayed *failed* attempt is re-evaluated instead of returning the first error | Cache full responses in Redis for 24 h if clients need exact replays of failures |
 | TD-017 | Waitlist reorder (FR-ADMIN-023) and the conflicts view (FR-ADMIN-024) | Add with the admin dashboard work (Phase 11) |
 | TD-018 | Material ordering is by `position` within a folder but the UI has no drag-to-reorder yet | Add reordering with the student portal's materials view (Phase 8) |
-| TD-020 | No daily email digest (FR-NOTIF-006, S); emails are sent per notification | Add a digest preference and a daily job batching opted-in categories |
+| TD-020 | ~~No email digest~~ | **Resolved:** digest preference, hourly `email-digest` job |
 | TD-021 | Section conversation membership is synced when the conversation list or the conversation is opened, or someone posts — not on every registration change | Event-driven sync from registration changes if read receipts per member become important |
-| TD-023 | Not in this release: global search endpoint, runtime settings API, failed-job retry API, documents store (designed in API.md) | Add when needed; failed jobs are visible on the dashboard and retryable with BullMQ tooling |
-| TD-022 | No UI/API for transfer credits and exemptions (`record:manage`); records support `source` TRANSFER/EXEMPTION | Add `POST /students/{id}/records` with an admin form |
+| TD-023 | ~~Search, settings, job retries, documents not built~~ | **Resolved:** all four APIs and admin pages |
+| TD-022 | ~~No transfer credits/exemptions entry~~ | **Resolved:** `POST /students/{id}/records` and the transcript page form |
 | TD-019 | A student may register for a course they are currently taking in another (unfinished) session; FR-REG-007 only blocks courses already passed | Decide with the registrar whether to block concurrent repeats (Phase 12 review) |
 | TD-013 | Section meetings run for the whole session (no per-meeting start/end dates) | Add `starts_on`/`ends_on` if half-session courses are needed |
 | TD-014 | Syllabus is rich text only; no syllabus file attachment yet | Add with course materials (Phase 7, file service exists) |

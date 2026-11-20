@@ -329,3 +329,39 @@ describe('per-user write limits (SECURITY.md §8)', () => {
     expect(blocked.headers['retry-after']).toBeDefined();
   });
 });
+
+describe('daily email digest (FR-NOTIF-006)', () => {
+  it('holds ordinary emails for the digest and still sends mandatory ones at once', async () => {
+    const { queueNotifications, sendDigests } =
+      await import('./notifications/notifications.service.js');
+    const user = await createUser({ roles: ['STUDENT'] });
+    const auth = await login(app, user.email);
+    const on = await request(app)
+      .put(`${api}/notifications/digest`)
+      .set(bearer(auth))
+      .send({ enabled: true })
+      .expect(200);
+    expect(on.body.data.enabled).toBe(true);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastDigestAt: new Date(Date.now() - 60_000) },
+    });
+    const send = async (category: 'TICKET' | 'REGISTRATION', title: string) => {
+      const after = await queueNotifications(prisma, [
+        { userId: user.id, category, title, body: 'Body text', link: '/student/support' },
+      ]);
+      after();
+      await new Promise((r) => setTimeout(r, 50));
+    };
+    await send('TICKET', 'Ticket replied');
+    await send('REGISTRATION', 'Registration cancelled');
+    const logs = () => prisma.emailLog.findMany({ where: { toAddress: user.email } });
+    expect((await logs()).map((l) => l.kind)).toEqual(['notification:registration']);
+
+    expect(await sendDigests(new Date(Date.now() + 25 * 3600_000))).toEqual({ users: 1, sent: 1 });
+    const digest = (await logs()).find((l) => l.kind === 'notification:digest');
+    expect(digest?.subject).toBe('Your daily summary: 1 update');
+    // Already sent today: nothing more until tomorrow.
+    expect(await sendDigests(new Date(Date.now() + 26 * 3600_000))).toEqual({ users: 0, sent: 0 });
+  });
+});

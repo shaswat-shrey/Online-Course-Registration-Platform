@@ -99,3 +99,29 @@ export function notificationEmail(
     ),
   };
 }
+
+/** Daily digest of notifications (FR-NOTIF-006); links are in-app paths. */
+export function digestEmail(
+  to: string,
+  firstName: string,
+  items: Array<{ title: string; body: string; link: string | null }>,
+): MailMessage {
+  const shown = items.slice(0, 20);
+  const more = items.length - shown.length;
+  const url = new URL('/', env.WEB_APP_URL).toString();
+  const subject = `Your daily summary: ${items.length} update${items.length === 1 ? '' : 's'}`;
+  const lines = [
+    `Hello ${firstName},`,
+    `Here is what happened since your last summary.`,
+    ...shown.map((i) => `• ${i.title} — ${i.body.slice(0, 160)}`),
+    ...(more > 0 ? [`…and ${more} more in the portal.`] : []),
+  ];
+  const footer =
+    'You receive one summary a day. Change this under Account security → Notifications.';
+  return {
+    to,
+    subject,
+    text: `${lines.join('\n\n')}\n\nOpen the portal: ${url}\n\n${footer}\n`,
+    html: layout(subject, [...lines, footer], { label: 'Open the portal', url }),
+  };
+}

@@ -3,6 +3,7 @@ import type {
   AssessmentInput,
   AssessmentType,
   AttendanceStatus,
+  ExternalRecordInput,
   GradeSubmissionStatus,
 } from '@ucrams/shared';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/services/http';
@@ -124,6 +125,7 @@ export interface TranscriptCourse {
   source: string;
   repeatedLater: boolean;
   version: number;
+  institution: string | null;
 }
 export interface Transcript {
   university: string | null;
@@ -329,3 +331,11 @@ export const useAvailability = (p: { sessionId: string; minCapacity?: number }) 
       }),
     enabled: !!p.sessionId,
   });
+
+export const useAddExternalRecord = (studentId: string) =>
+  useAcademicMutation((body: ExternalRecordInput) =>
+    apiPost<{ id: string; course: string; credits: number }>(
+      `/students/${studentId}/records`,
+      body,
+    ),
+  );

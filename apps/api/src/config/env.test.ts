@@ -6,6 +6,7 @@ const base = {
   REDIS_URL: 'redis://localhost:6379/0',
   STORAGE_SIGNING_SECRET: 'x'.repeat(40),
   JWT_ACCESS_SECRET: 'j'.repeat(40),
+  MFA_ENCRYPTION_KEY: 'm'.repeat(40),
 };
 
 describe('parseEnv', () => {

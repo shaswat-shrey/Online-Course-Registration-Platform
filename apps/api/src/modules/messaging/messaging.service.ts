@@ -16,6 +16,7 @@ import {
 } from '../../common/exceptions/app-error.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
 import { storage } from '../../infrastructure/storage/index.js';
+import { getSetting } from '../platform/settings.service.js';
 import {
   queueNotifications,
   type NewNotification,
@@ -602,6 +603,9 @@ export async function contacts(actor: ActorContext, q: string) {
         },
       });
     }
+    // With the "any faculty" setting on, students can find every faculty member by name.
+    if (me.student && q.length >= 2 && (await getSetting('messaging.studentsContactAnyFaculty')))
+      or.push({ facultyMember: { isNot: null } });
     if (me.student)
       or.push({
         facultyMember: {

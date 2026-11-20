@@ -19,6 +19,7 @@ export const meSchema = z
       status: z.string(),
       lastLoginAt: z.string().nullable(),
       avatarUrl: z.string().nullable(),
+      mfaEnabled: z.boolean(),
     }),
     roles: z.array(roleAssignment),
     permissions: z.array(z.string()),
@@ -43,6 +44,10 @@ export const accessTokenSchema = z
 export const loginResultSchema = accessTokenSchema
   .extend({ me: meSchema })
   .meta({ id: 'LoginResult' });
+
+export const mfaChallengeSchema = z
+  .object({ mfaRequired: z.literal(true), challengeToken: z.string(), expiresAt: z.string() })
+  .meta({ id: 'MfaChallenge' });
 
 export const sessionSchema = z
   .object({

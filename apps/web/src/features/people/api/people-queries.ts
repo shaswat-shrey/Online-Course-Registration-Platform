@@ -139,6 +139,8 @@ export const useResendInvite = (userId: string) =>
   usePeopleMutation(() => apiPost(`/users/${userId}/resend-invite`));
 export const useUnlockUser = (userId: string) =>
   usePeopleMutation(() => apiPost(`/users/${userId}/unlock`));
+export const useResetUserMfa = (userId: string) =>
+  usePeopleMutation(() => apiPost(`/users/${userId}/mfa/reset`));
 export const useRevokeUserSessions = (userId: string) =>
   usePeopleMutation(() => apiDelete<{ sessionsRevoked: number }>(`/users/${userId}/sessions`));
 export const useAssignRole = (userId: string) =>

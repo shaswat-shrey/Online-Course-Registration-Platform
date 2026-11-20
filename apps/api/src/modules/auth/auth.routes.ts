@@ -8,12 +8,16 @@ import {
   ErrorCode,
   forgotPasswordSchema,
   loginSchema,
+  mfaCodeSchema,
+  mfaDisableSchema,
+  mfaVerifySchema,
   resetPasswordSchema,
 } from '@ucrams/shared';
 import { getActor, requestMeta } from '../../common/context/actor.js';
 import { AppError } from '../../common/exceptions/app-error.js';
 import { defineRoute } from '../../common/http/define-route.js';
 import { sendOk } from '../../common/http/response.js';
+import * as mfa from './mfa.service.js';
 import { strictRateLimit } from '../../common/middleware/rate-limit.js';
 import { successEnvelope } from '../../openapi/registry.js';
 import {
@@ -29,12 +33,14 @@ import {
   refresh,
   resetPassword,
   revokeOwnSession,
+  verifyMfaLogin,
 } from './auth.service.js';
 import { clearAuthCookies, requireCsrf, setAuthCookies } from './auth.cookies.js';
 import {
   accessTokenSchema,
   loginAttemptSchema,
   loginResultSchema,
+  mfaChallengeSchema,
   meSchema,
   sessionSchema,
 } from './auth.schemas.js';
@@ -84,10 +90,17 @@ defineRoute(
     access: { public: true },
     request: { body: loginSchema },
     middleware: [loginLimiter],
-    responses: { 200: { description: 'Signed in', schema: successEnvelope(loginResultSchema) } },
+    responses: {
+      200: {
+        description: 'Signed in, or a two-factor challenge to finish with /auth/mfa/verify',
+        schema: successEnvelope(z.union([loginResultSchema, mfaChallengeSchema])),
+      },
+    },
   },
   async (req, res) => {
     const result = await login(req.valid.body, requestMeta(req));
+    if ('mfaRequired' in result)
+      return void sendOk(res, result, 'Enter the code from your authenticator app');
     setAuthCookies(res, result.refreshToken, result.refreshExpiresAt);
     sendOk(
       res,
@@ -98,6 +111,159 @@ defineRoute(
       },
       'Signed in successfully',
     );
+  },
+);
+
+defineRoute(
+  authRouter,
+  {
+    method: 'post',
+    path: '/auth/mfa/verify',
+    summary: 'Finish signing in with an authenticator or recovery code',
+    description: 'Exchanges the challenge from /auth/login (5 minutes, 5 attempts) for a session.',
+    tags,
+    access: { public: true },
+    request: { body: mfaVerifySchema },
+    middleware: [tokenLimiter],
+    responses: { 200: { description: 'Signed in', schema: successEnvelope(loginResultSchema) } },
+  },
+  async (req, res) => {
+    const result = await verifyMfaLogin(
+      req.valid.body.challengeToken,
+      req.valid.body.code,
+      requestMeta(req),
+    );
+    setAuthCookies(res, result.refreshToken, result.refreshExpiresAt);
+    sendOk(
+      res,
+      {
+        accessToken: result.accessToken,
+        accessTokenExpiresAt: result.accessTokenExpiresAt.toISOString(),
+        me: result.me,
+      },
+      'Signed in successfully',
+    );
+  },
+);
+
+defineRoute(
+  authRouter,
+  {
+    method: 'get',
+    path: '/auth/mfa',
+    summary: 'Your two-factor sign-in status',
+    tags,
+    access: { authenticated: true },
+    responses: {
+      200: {
+        description: 'Status',
+        schema: successEnvelope(
+          z.object({ enabled: z.boolean(), recoveryCodesRemaining: z.number() }),
+        ),
+      },
+    },
+  },
+  async (req, res) => {
+    sendOk(res, await mfa.status(getActor(req)), 'Two-factor status');
+  },
+);
+
+defineRoute(
+  authRouter,
+  {
+    method: 'post',
+    path: '/auth/mfa/setup',
+    summary: 'Start two-factor enrolment (returns the secret and otpauth URL)',
+    tags,
+    access: { authenticated: true },
+    responses: {
+      200: {
+        description: 'Secret',
+        schema: successEnvelope(z.object({ secret: z.string(), otpauthUrl: z.string() })),
+      },
+    },
+  },
+  async (req, res) => {
+    sendOk(res, await mfa.startSetup(getActor(req)), 'Scan the code with your authenticator app');
+  },
+);
+
+const recoveryCodes = successEnvelope(z.object({ recoveryCodes: z.array(z.string()) }));
+
+defineRoute(
+  authRouter,
+  {
+    method: 'post',
+    path: '/auth/mfa/enable',
+    summary: 'Confirm enrolment with the first code; returns one-time recovery codes',
+    tags,
+    access: { authenticated: true },
+    request: { body: mfaCodeSchema },
+    middleware: [tokenLimiter],
+    responses: { 200: { description: 'Enabled', schema: recoveryCodes } },
+  },
+  async (req, res) => {
+    sendOk(
+      res,
+      await mfa.confirmSetup(getActor(req), req.valid.body.code),
+      'Two-factor sign-in is on',
+    );
+  },
+);
+
+defineRoute(
+  authRouter,
+  {
+    method: 'post',
+    path: '/auth/mfa/disable',
+    summary: 'Turn two-factor sign-in off (password and a current code)',
+    tags,
+    access: { authenticated: true },
+    request: { body: mfaDisableSchema },
+    middleware: [tokenLimiter],
+    responses: { 200: { description: 'Disabled' } },
+  },
+  async (req, res) => {
+    await mfa.disable(getActor(req), req.valid.body.password, req.valid.body.code);
+    sendOk(res, null, 'Two-factor sign-in is off');
+  },
+);
+
+defineRoute(
+  authRouter,
+  {
+    method: 'post',
+    path: '/auth/mfa/recovery-codes',
+    summary: 'Replace your recovery codes (needs a current authenticator code)',
+    tags,
+    access: { authenticated: true },
+    request: { body: mfaCodeSchema },
+    middleware: [tokenLimiter],
+    responses: { 200: { description: 'New codes', schema: recoveryCodes } },
+  },
+  async (req, res) => {
+    sendOk(
+      res,
+      await mfa.regenerateRecoveryCodes(getActor(req), req.valid.body.code),
+      'New recovery codes',
+    );
+  },
+);
+
+defineRoute(
+  authRouter,
+  {
+    method: 'post',
+    path: '/users/:id/mfa/reset',
+    summary: "Turn off someone's two-factor sign-in (lost device)",
+    tags: ['Account security'],
+    access: { permission: 'user:manage_status' },
+    request: { params: z.object({ id: z.uuid() }) },
+    responses: { 200: { description: 'Reset' } },
+  },
+  async (req, res) => {
+    await mfa.adminReset(getActor(req), req.valid.params.id);
+    sendOk(res, null, 'Two-factor sign-in reset');
   },
 );
 

@@ -30,6 +30,7 @@ import { auditRouter } from './modules/audit/audit.routes.js';
 import { peopleAdminRouter } from './modules/administrators/administrators.routes.js';
 import { degreesRouter } from './modules/degrees/degrees.routes.js';
 import { facultyRouter } from './modules/faculty/faculty.routes.js';
+import { platformRouter } from './modules/platform/platform.routes.js';
 import { importsRouter } from './modules/imports/imports.routes.js';
 import { studentsRouter } from './modules/students/students.routes.js';
 import { departmentsRouter } from './modules/departments/departments.routes.js';
@@ -119,6 +120,7 @@ export function createApp(): Express {
   api.use(discussionsRouter);
   api.use(supportRouter);
   api.use(importsRouter);
+  api.use(platformRouter);
   app.use(API_PREFIX, api);
 
   if (env.API_DOCS_ENABLED) {

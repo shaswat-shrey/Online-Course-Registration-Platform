@@ -27,6 +27,7 @@ Required in production:
 | `REDIS_URL` | Redis URL (`rediss://` for TLS) |
 | `JWT_ACCESS_SECRET` | ≥ 32 random characters — `openssl rand -base64 48` |
 | `STORAGE_SIGNING_SECRET` | ≥ 32 random characters |
+| `MFA_ENCRYPTION_KEY` | ≥ 32 random characters; encrypts two-factor secrets. **Changing it disables every user's two-factor sign-in** (they must enrol again) |
 | `STORAGE_DRIVER` | `s3` with `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION` |
 | `PUBLIC_API_URL`, `WEB_APP_URL` | Public origin, e.g. `https://register.university.edu` |
 | `CORS_ORIGINS` | The web origin(s), comma-separated |
@@ -44,7 +45,7 @@ cp .env.docker.example .env        # set every secret to a strong value
 docker compose --profile app up -d --build
 ```
 
-Compose builds the images, runs `prisma migrate deploy` once (`migrate` service), then starts the API, worker and web (Nginx on port 8080). Put TLS in front (a load balancer or another Nginx/Caddy) and point your domain at it.
+Compose builds the images (the API image once, shared by `migrate`, `api` and `worker`), runs `prisma migrate deploy` once, then starts the API, worker and web (Nginx on port 8080). Files are stored on the `storage` volume with the local driver; for several hosts use S3/R2 (`STORAGE_DRIVER=s3` and the `S3_*` variables in an override file). Put TLS in front (a load balancer or another Nginx/Caddy) and point your domain at it.
 
 Create the first Super Administrator (prints a one-time activation link and emails it; does nothing if one exists):
 

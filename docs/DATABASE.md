@@ -330,7 +330,9 @@ erDiagram
 | `refresh_tokens` [C] | Hashed rotating tokens per session | `token_hash` unique; index `session_id` |
 | `auth_tokens` | Hashed single-use tokens: `EMAIL_VERIFY`, `PASSWORD_RESET`, `MFA_CHALLENGE` | `token_hash` unique; index (`user_id`, `type`) |
 | `login_attempts` | Login history (outcome, IP, user agent; attempts for unknown emails are stored without the email) | index (`user_id`, `created_at desc`), (`ip`, `created_at`) |
-| `mfa_recovery_codes` [C] | Hashed recovery codes | — (planned with MFA; not yet created) |
+| `mfa_recovery_codes` [C] | SHA-256 hashed single-use recovery codes (`used_at` when spent) | unique (`user_id`, `code_hash`) |
+| `system_settings` | Runtime settings (`key` PK, JSON `value`) validated by the shared registry | — |
+| `admin_documents` | Published documents: audience (`visibility`), optional department, one READY `DOCUMENT` file | `file_id` unique; index (`visibility`, `department_id`) |
 
 ### 3.2 Profiles
 | Table | Purpose | Key constraints |

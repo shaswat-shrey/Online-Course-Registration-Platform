@@ -48,6 +48,8 @@ export const envSchema = z
     JWT_ACCESS_SECRET_PREVIOUS: z.string().min(32).optional(),
     JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
     JWT_ISSUER: z.string().default('ucrams'),
+    /** Encrypts two-factor secrets at rest (AES-256-GCM). Changing it invalidates enrolments. */
+    MFA_ENCRYPTION_KEY: z.string().min(32),
     REFRESH_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(7),
     REFRESH_REMEMBER_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
     REFRESH_REUSE_GRACE_SECONDS: z.coerce.number().int().min(0).max(60).default(10),
@@ -91,6 +93,7 @@ export const envSchema = z
       const secrets = {
         JWT_ACCESS_SECRET: env.JWT_ACCESS_SECRET,
         STORAGE_SIGNING_SECRET: env.STORAGE_SIGNING_SECRET,
+        MFA_ENCRYPTION_KEY: env.MFA_ENCRYPTION_KEY,
         DATABASE_URL: env.DATABASE_URL,
         ...(env.STORAGE_DRIVER === 's3' ? { S3_SECRET_KEY: env.S3_SECRET_KEY ?? '' } : {}),
       };

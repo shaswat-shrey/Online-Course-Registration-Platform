@@ -138,3 +138,43 @@ defineRoute(
     );
   },
 );
+
+const digestDto = successEnvelope(
+  z.object({ enabled: z.boolean(), lastSentAt: z.string().nullable() }),
+);
+
+defineRoute(
+  notificationsRouter,
+  {
+    method: 'get',
+    path: '/notifications/digest',
+    summary: 'Whether your emails are collected into a daily summary',
+    tags,
+    access: { authenticated: true },
+    responses: { 200: { description: 'Digest', schema: digestDto } },
+  },
+  async (req, res) => {
+    sendOk(res, await service.getDigest(getActor(req)), 'Digest setting');
+  },
+);
+
+defineRoute(
+  notificationsRouter,
+  {
+    method: 'put',
+    path: '/notifications/digest',
+    summary:
+      'Switch the daily email summary on or off (mandatory and urgent emails still arrive at once)',
+    tags,
+    access: { authenticated: true },
+    request: { body: z.object({ enabled: z.boolean() }) },
+    responses: { 200: { description: 'Saved', schema: digestDto } },
+  },
+  async (req, res) => {
+    sendOk(
+      res,
+      await service.setDigest(getActor(req), req.valid.body.enabled),
+      'Digest setting saved',
+    );
+  },
+);

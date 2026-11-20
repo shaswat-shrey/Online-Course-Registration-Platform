@@ -449,3 +449,17 @@ export const useAssignees = (
       }),
     enabled,
   });
+
+export const useDigest = () =>
+  useQuery({
+    queryKey: ['notification-digest'],
+    queryFn: () => apiGet<{ enabled: boolean; lastSentAt: string | null }>('/notifications/digest'),
+  });
+export const useSaveDigest = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) =>
+      apiPut<{ enabled: boolean; lastSentAt: string | null }>('/notifications/digest', { enabled }),
+    onSuccess: (data) => qc.setQueryData(['notification-digest'], data),
+  });
+};

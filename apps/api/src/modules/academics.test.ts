@@ -465,3 +465,66 @@ describe('GPA repeat policy and classroom availability (FR-ACAD-002/008)', () =>
     expect(room.utilization).toBeCloseTo(2.1, 1);
   });
 });
+
+describe('transfer credits and exemptions (FR-ACAD-007)', () => {
+  it('records external credit that counts for progress but never the GPA', async () => {
+    const w = await world();
+    const studentId = w.students[0]!.student.id;
+    const other = await createCourse(
+      (await prisma.course.findUniqueOrThrow({ where: { id: w.course.id } })).departmentId,
+      { code: 'TRF201', credits: 3 },
+    );
+    const post = (who: { accessToken: string }, body: object) =>
+      request(app).post(`${api}/students/${studentId}/records`).set(bearer(who)).send(body);
+    await post(w.deptAdmin, {
+      source: 'EXEMPTION',
+      courseId: other.id,
+      note: 'Passed the placement exam.',
+    }).expect(403);
+    await post(w.registrar, {
+      source: 'TRANSFER',
+      courseId: other.id,
+      note: 'Missing school',
+    }).expect(400);
+    const transfer = await post(w.registrar, {
+      source: 'TRANSFER',
+      courseId: other.id,
+      gradeLetter: 'b',
+      externalInstitution: 'City College',
+      note: 'Equivalent per articulation agreement 2026-14.',
+    }).expect(201);
+    expect(transfer.body.data).toMatchObject({ course: 'TRF201', credits: 3, source: 'TRANSFER' });
+    await post(w.registrar, {
+      source: 'EXEMPTION',
+      courseId: other.id,
+      note: 'Duplicate attempt to exempt.',
+    }).expect(409);
+    const exemption = await post(w.registrar, {
+      source: 'EXEMPTION',
+      courseId: w.course.id,
+      credits: 0,
+      note: 'Waived: prior industry certification.',
+    }).expect(201);
+    expect(exemption.body.data.credits).toBe(0);
+
+    const t = await request(app).get(`${api}/students/me/transcript`).set(bearer(w.s1)).expect(200);
+    const bucket = t.body.data.sessions.find((s: { id: string }) => s.id === 'transfer');
+    expect(bucket.courses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TRF201',
+          grade: 'B',
+          source: 'TRANSFER',
+          institution: 'City College',
+        }),
+        expect.objectContaining({ code: 'ACA101', source: 'EXEMPTION', creditsEarned: 0 }),
+      ]),
+    );
+    expect(t.body.data).toMatchObject({ creditsEarned: 3, cgpa: null });
+    expect(
+      await prisma.auditLog.count({
+        where: { action: { in: ['record.transfer_added', 'record.exemption_added'] } },
+      }),
+    ).toBe(2);
+  });
+});

@@ -14,7 +14,10 @@ import {
 } from './modules/registrations/waitlist.service.js';
 import { processExport } from './modules/reports/exports.service.js';
 import { closeResolvedTickets } from './modules/support/tickets.service.js';
-import { purgeOldNotifications } from './modules/notifications/notifications.service.js';
+import {
+  purgeOldNotifications,
+  sendDigests,
+} from './modules/notifications/notifications.service.js';
 import {
   fanOutAnnouncement,
   sweepDueAnnouncements,
@@ -73,6 +76,8 @@ const processors: Partial<Record<QueueName, { processor: Processor; concurrency:
           return closeResolvedTickets();
         case 'announcement-sweep':
           return sweepDueAnnouncements();
+        case 'email-digest':
+          return sendDigests();
         case 'purge-notifications':
           return { purged: await purgeOldNotifications() };
         case 'heartbeat':
@@ -143,6 +148,11 @@ async function main() {
     'close-resolved-tickets',
     { every: 60 * 60_000 },
     { name: 'close-resolved-tickets', opts: { attempts: 3 } },
+  );
+  await getQueue(QueueName.MAINTENANCE).upsertJobScheduler(
+    'email-digest',
+    { every: 60 * 60_000 },
+    { name: 'email-digest', opts: { attempts: 3 } },
   );
   logger.info({ queues: Object.keys(processors) }, 'Worker started');
 

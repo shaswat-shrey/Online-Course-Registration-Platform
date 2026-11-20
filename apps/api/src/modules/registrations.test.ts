@@ -194,6 +194,7 @@ describe('registration rules', () => {
         data: {
           studentId: s.id,
           courseId,
+          sessionId: w.section.sessionId,
           source: 'ENROLLMENT',
           courseCodeSnapshot: 'X',
           courseTitleSnapshot: 'X',

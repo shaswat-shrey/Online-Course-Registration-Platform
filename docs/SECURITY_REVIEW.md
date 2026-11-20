@@ -35,7 +35,7 @@ Method: OWASP Top 10 (2021) walk-through against the code, automated checks adde
 
 **A06 Vulnerable and outdated components.** `npm audit` reports 0 vulnerabilities. CI runs the audit on every push (Phase 1 workflow).
 
-**A07 Identification and authentication failures.** Login, password reset and token endpoints use fail-closed Redis rate limits (per IP and per IP + identifier); accounts lock with exponential backoff; sessions are revocable individually or all at once; password change revokes other sessions; suspended or deactivated accounts lose access on the next request. MFA is not implemented (accepted risk, below).
+**A07 Identification and authentication failures.** Login, password reset and token endpoints use fail-closed Redis rate limits (per IP and per IP + identifier); accounts lock with exponential backoff; sessions are revocable individually or all at once; password change revokes other sessions; suspended or deactivated accounts lose access on the next request. Optional two-factor sign-in (TOTP) with hashed single-use recovery codes, replay protection and a rate-limited, five-attempt sign-in challenge; administrators can reset it for a user who lost their device.
 
 **A08 Software and data integrity failures.** Uploads are verified by magic bytes after upload (declared type is not trusted) and rejected files are deleted. Academic records are never deleted; grade changes are versioned. Exports re-run with the requester's current grants in the worker.
 
@@ -47,7 +47,7 @@ Method: OWASP Top 10 (2021) walk-through against the code, automated checks adde
 
 | Item | Note |
 |---|---|
-| No MFA | `mfa_enabled` exists on users; TOTP enrolment is a post-release item (SRS lists MFA as S) |
+| MFA is optional | Users opt in; enforcing it for administrator roles is a policy decision (a setting could require it) |
 | Message attachments are not virus-scanned | Types are restricted and verified by content; add ClamAV (or the storage provider's scanner) before opening uploads to external users |
 | Load test not executed in this environment | `load/registration.k6.js` is ready (k6 is not installed here); AC-REG-001 covers 50 concurrent requests for one seat in the integration suite |
 | CSP | Helmet's default CSP is active for the API; the web app is served by nginx with a strict CSP and security headers (`docker/nginx.conf`) — revisit the CSP when adding third-party scripts |

@@ -28,6 +28,8 @@ export async function createUploadIntent(actor: ActorContext, input: UploadInten
   // Course materials are only uploaded by people who may manage them somewhere.
   if (input.context === 'MATERIAL' && !hasPermission(actor.grants, 'material:manage'))
     throw new ForbiddenError();
+  if (input.context === 'DOCUMENT' && !hasPermission(actor.grants, 'document:manage'))
+    throw new ForbiddenError();
   if (input.context === 'MESSAGE' && !hasPermission(actor.grants, 'message:send'))
     throw new ForbiddenError();
   if (

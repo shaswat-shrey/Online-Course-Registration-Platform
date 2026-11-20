@@ -69,28 +69,38 @@ enum LoginOutcome {
   UNKNOWN_USER
   LOCKED
   INACTIVE
+  MFA_FAILED
 }
 
 model User {
-  id                 String     @id @default(uuid(7)) @db.Uuid
-  email              String     @unique @db.Citext
+  id                  String     @id @default(uuid(7)) @db.Uuid
+  email               String     @unique @db.Citext
   /// Argon2id hash; null until an invited user sets a password.
-  passwordHash       String?    @map("password_hash")
-  firstName          String     @map("first_name") @db.VarChar(100)
-  lastName           String     @map("last_name") @db.VarChar(100)
-  status             UserStatus @default(INVITED)
-  emailVerifiedAt    DateTime?  @map("email_verified_at") @db.Timestamptz(3)
-  failedLoginCount   Int        @default(0) @map("failed_login_count")
+  passwordHash        String?    @map("password_hash")
+  firstName           String     @map("first_name") @db.VarChar(100)
+  lastName            String     @map("last_name") @db.VarChar(100)
+  status              UserStatus @default(INVITED)
+  emailVerifiedAt     DateTime?  @map("email_verified_at") @db.Timestamptz(3)
+  failedLoginCount    Int        @default(0) @map("failed_login_count")
   /// Number of lockouts since the last successful login (drives exponential lock duration).
-  lockoutCount       Int        @default(0) @map("lockout_count")
-  lockedUntil        DateTime?  @map("locked_until") @db.Timestamptz(3)
-  lastLoginAt        DateTime?  @map("last_login_at") @db.Timestamptz(3)
-  passwordChangedAt  DateTime?  @map("password_changed_at") @db.Timestamptz(3)
+  lockoutCount        Int        @default(0) @map("lockout_count")
+  lockedUntil         DateTime?  @map("locked_until") @db.Timestamptz(3)
+  lastLoginAt         DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  passwordChangedAt   DateTime?  @map("password_changed_at") @db.Timestamptz(3)
   /// Incremented whenever roles/permissions change; stale access tokens are forced to refresh.
-  permissionsVersion Int        @default(1) @map("permissions_version")
-  mfaEnabled         Boolean    @default(false) @map("mfa_enabled")
-  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  permissionsVersion  Int        @default(1) @map("permissions_version")
+  mfaEnabled          Boolean    @default(false) @map("mfa_enabled")
+  /// TOTP secret, AES-256-GCM encrypted with MFA_ENCRYPTION_KEY (never stored in clear).
+  mfaSecretEnc        String?    @map("mfa_secret_enc") @db.VarChar(200)
+  /// Secret awaiting confirmation during enrolment.
+  mfaPendingSecretEnc String?    @map("mfa_pending_secret_enc") @db.VarChar(200)
+  /// Last accepted TOTP time step, so a code cannot be replayed.
+  mfaLastStep         Int?       @map("mfa_last_step")
+  /// Daily email digest instead of one email per notification (FR-NOTIF-006).
+  emailDigest         Boolean    @default(false) @map("email_digest")
+  lastDigestAt        DateTime?  @map("last_digest_at") @db.Timestamptz(3)
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   roles          UserRole[]              @relation("UserRoles")
   rolesAssigned  UserRole[]              @relation("RoleAssigner")
@@ -138,6 +148,9 @@ model User {
   gradeSubmissionsDecided   FinalGradeSubmission[] @relation("GradeDecider")
   gradeChangesMade          GradeChange[]
   exportJobs                ExportJob[]
+  mfaRecoveryCodes          MfaRecoveryCode[]
+  settingsUpdated           SystemSetting[]
+  documentsUploaded         AdminDocument[]
 
   @@index([status])
   @@map("users")
@@ -406,8 +419,9 @@ model Department {
 
   courses Course[]
 
-  feedback Feedback[]
-  tickets  SupportTicket[]
+  feedback  Feedback[]
+  tickets   SupportTicket[]
+  documents AdminDocument[]
 
   @@index([schoolId, status])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "departments_name_trgm")
@@ -936,6 +950,7 @@ model StoredFile {
   messageAttachment MessageAttachment?
   ticketAttachment  TicketAttachment?
   exportJob         ExportJob?
+  document          AdminDocument?
 
   @@index([ownerId, context])
   @@index([status, createdAt])
@@ -1481,6 +1496,12 @@ model AcademicRecord {
   countsInGpa         Boolean      @default(true) @map("counts_in_gpa")
   passed              Boolean
   version             Int          @default(1)
+  /// Where a transfer credit was earned (TRANSFER records).
+  externalInstitution String?      @map("external_institution") @db.VarChar(200)
+  /// Registrar's note, e.g. the basis for an exemption.
+  note                String?      @db.VarChar(500)
+  /// Administrator who entered a transfer or exemption.
+  enteredById         String?      @map("entered_by_id") @db.Uuid
   createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -2224,4 +2245,68 @@ model ExportJob {
   @@index([requestedById, createdAt(sort: Desc)])
   @@index([status])
   @@map("export_jobs")
+}
+
+// ============================================================
+// Two-factor sign-in (FR-AUTH, SECURITY.md A07)
+// ============================================================
+
+/// One-time recovery codes for two-factor sign-in, stored as SHA-256 hashes.
+model MfaRecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  Bytes     @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, codeHash])
+  @@map("mfa_recovery_codes")
+}
+
+// ============================================================
+// Platform administration: settings, documents
+// ============================================================
+
+/// Typed runtime settings (DATABASE.md §3.9); each key is validated by a Zod schema in code.
+model SystemSetting {
+  key         String   @id @db.VarChar(80)
+  value       Json
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("system_settings")
+}
+
+enum DocumentVisibility {
+  ALL_USERS
+  STUDENTS
+  FACULTY
+  ADMINS
+}
+
+/// Administrative documents (policies, forms, handbooks) published to an audience.
+model AdminDocument {
+  id           String             @id @default(uuid(7)) @db.Uuid
+  title        String             @db.VarChar(200)
+  description  String?            @db.VarChar(1000)
+  category     String             @db.VarChar(60)
+  visibility   DocumentVisibility @default(ALL_USERS)
+  /// Limits the audience to one department (students of its programmes, its faculty).
+  departmentId String?            @map("department_id") @db.Uuid
+  fileId       String             @unique @map("file_id") @db.Uuid
+  uploadedById String             @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  file       StoredFile  @relation(fields: [fileId], references: [id])
+  uploadedBy User        @relation(fields: [uploadedById], references: [id])
+
+  @@index([visibility, departmentId])
+  @@index([category])
+  @@map("admin_documents")
 }

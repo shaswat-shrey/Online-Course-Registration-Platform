@@ -25,6 +25,9 @@ import {
   CalendarClock,
   FileCheck2,
   FileText,
+  FolderOpen,
+  Settings,
+  Activity,
   MessageSquareText,
   MessagesSquare,
   MessageSquarePlus,
@@ -144,6 +147,19 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
         { label: 'Audit log', to: '/admin/audit-logs', icon: History, permission: 'audit:read' },
       ],
     },
+    {
+      label: 'System',
+      items: [
+        { label: 'Documents', to: '/admin/documents', icon: FolderOpen },
+        {
+          label: 'Settings',
+          to: '/admin/settings',
+          icon: Settings,
+          permission: 'settings:manage',
+        },
+        { label: 'Background jobs', to: '/admin/jobs', icon: Activity, permission: 'jobs:read' },
+      ],
+    },
     { label: 'Account', items: [{ label: 'Security', to: '/admin/account', icon: KeyRound }] },
   ],
   faculty: [
@@ -178,6 +194,7 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
     {
       label: 'Account',
       items: [
+        { label: 'Documents', to: '/faculty/documents', icon: FolderOpen },
         { label: 'Profile', to: '/faculty/profile', icon: UserRound },
         { label: 'Security', to: '/faculty/account', icon: KeyRound },
       ],
@@ -228,6 +245,7 @@ export const NAVIGATION: Record<Portal, NavGroup[]> = {
     {
       label: 'Account',
       items: [
+        { label: 'Documents', to: '/student/documents', icon: FolderOpen },
         { label: 'Profile', to: '/student/profile', icon: UserRound },
         { label: 'Security', to: '/student/account', icon: KeyRound },
       ],

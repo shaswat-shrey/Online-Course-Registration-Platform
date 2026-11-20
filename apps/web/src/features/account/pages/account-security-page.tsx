@@ -20,6 +20,7 @@ import { DataTable } from '@/components/tables/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { authApi } from '@/features/auth/api/auth-api';
+import { TwoFactorCard } from '@/features/account/components/two-factor-card';
 import { NotificationPreferencesCard } from '@/features/communication/components/notification-preferences';
 import { AvatarUploader } from '@/features/people/components/avatar-uploader';
 import { isApiError } from '@/services/api-error';
@@ -268,6 +269,7 @@ export function AccountSecurityPage() {
           </CardContent>
         </Card>
         <ChangePasswordCard />
+        <TwoFactorCard />
         <NotificationPreferencesCard />
         <SessionsCard />
         <LoginHistoryCard />

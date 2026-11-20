@@ -1,9 +1,11 @@
-import { History, Pencil, Printer } from 'lucide-react';
+import { History, Pencil, Plus, Printer } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { minutesToTime } from '@ucrams/shared';
 import { FormDialog } from '@/components/forms/form-dialog';
+import type { PickerOption } from '@/components/forms/search-picker';
+import { CoursePicker } from '@/features/courses/components/pickers';
 import { PageHeader } from '@/components/shared/page-header';
 import { EmptyState, ErrorState, LoadingRows } from '@/components/shared/states';
 import { StatusBadge } from '@/components/shared/status-badge';
@@ -27,6 +29,7 @@ import { formatDateTime } from '@/utils/format';
 import { formatDate } from '@/utils/timezone';
 import {
   useAvailability,
+  useAddExternalRecord,
   useChangeGrade,
   useGradeHistory,
   useMyAssessments,
@@ -316,7 +319,8 @@ function TranscriptView({ t, editable }: { t: Transcript; editable: boolean }) {
                         )}
                         {c.source !== 'ENROLLMENT' && (
                           <span className="ml-1 text-xs text-muted-foreground">
-                            ({c.source.toLowerCase()})
+                            ({c.source.toLowerCase()}
+                            {c.institution ? `, ${c.institution}` : ''})
                           </span>
                         )}
                       </td>
@@ -364,7 +368,142 @@ function TranscriptView({ t, editable }: { t: Transcript; editable: boolean }) {
   );
 }
 
-function TranscriptPage({ studentId, editable }: { studentId: string | 'me'; editable: boolean }) {
+function ExternalRecordDialog({ studentId }: { studentId: string }) {
+  const add = useAddExternalRecord(studentId);
+  const [open, setOpen] = useState(false);
+  const [source, setSource] = useState<'TRANSFER' | 'EXEMPTION'>('TRANSFER');
+  const [course, setCourse] = useState<PickerOption | null>(null);
+  const [credits, setCredits] = useState('');
+  const [grade, setGrade] = useState('');
+  const [institution, setInstitution] = useState('');
+  const [note, setNote] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <Button
+        variant="outline"
+        onClick={() => {
+          setSource('TRANSFER');
+          setCourse(null);
+          setCredits('');
+          setGrade('');
+          setInstitution('');
+          setNote('');
+          setError(null);
+          setOpen(true);
+        }}
+      >
+        <Plus className="size-4" /> Transfer or exemption
+      </Button>
+      <FormDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Add a transfer credit or exemption"
+        description="It counts towards prerequisites and degree progress, never towards the GPA. Records cannot be deleted."
+        submitLabel="Add to record"
+        submitting={add.isPending}
+        error={error}
+        onSubmit={() => {
+          if (!course) return setError('Choose the course.');
+          if (source === 'TRANSFER' && !institution.trim())
+            return setError('Name the institution.');
+          if (note.trim().length < 5) return setError('Explain the basis (at least 5 characters).');
+          add.mutate(
+            {
+              source,
+              courseId: course.value,
+              credits: credits === '' ? undefined : Number(credits),
+              gradeLetter: source === 'TRANSFER' ? grade.trim() || null : null,
+              externalInstitution: source === 'TRANSFER' ? institution.trim() : null,
+              note: note.trim(),
+            },
+            {
+              onSuccess: (r) => {
+                toast.success(`${r.course} added (${r.credits} credits)`);
+                setOpen(false);
+              },
+              onError: (e) => setError(errorMessage(e)),
+            },
+          );
+        }}
+      >
+        <div className="grid gap-1.5">
+          <Label id="ext-source">Type</Label>
+          <Select value={source} onValueChange={(v) => setSource(v as typeof source)}>
+            <SelectTrigger aria-labelledby="ext-source" className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="TRANSFER">Transfer credit</SelectItem>
+              <SelectItem value="EXEMPTION">Exemption</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-1.5">
+          <Label>Course</Label>
+          <CoursePicker label="Course" value={course} onChange={setCourse} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="ext-credits">Credits (blank = course credits)</Label>
+            <Input
+              id="ext-credits"
+              type="number"
+              min={0}
+              max={30}
+              step="0.5"
+              value={credits}
+              onChange={(e) => setCredits(e.target.value)}
+            />
+          </div>
+          {source === 'TRANSFER' && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="ext-grade">External grade (optional)</Label>
+              <Input
+                id="ext-grade"
+                maxLength={5}
+                value={grade}
+                onChange={(e) => setGrade(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+        {source === 'TRANSFER' && (
+          <div className="grid gap-1.5">
+            <Label htmlFor="ext-institution">Institution</Label>
+            <Input
+              id="ext-institution"
+              maxLength={200}
+              value={institution}
+              onChange={(e) => setInstitution(e.target.value)}
+            />
+          </div>
+        )}
+        <div className="grid gap-1.5">
+          <Label htmlFor="ext-note">Basis</Label>
+          <Textarea
+            id="ext-note"
+            rows={3}
+            maxLength={500}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. articulation agreement, placement exam result"
+          />
+        </div>
+      </FormDialog>
+    </>
+  );
+}
+
+function TranscriptPage({
+  studentId,
+  editable,
+  canAddRecords = false,
+}: {
+  studentId: string | 'me';
+  editable: boolean;
+  canAddRecords?: boolean;
+}) {
   const t = useTranscript(studentId);
   return (
     <>
@@ -372,9 +511,12 @@ function TranscriptPage({ studentId, editable }: { studentId: string | 'me'; edi
         title="Transcript"
         description="Grades by session with session GPA and CGPA."
         actions={
-          <Button variant="outline" onClick={() => window.print()}>
-            <Printer className="size-4" /> Print
-          </Button>
+          <>
+            {canAddRecords && studentId !== 'me' && <ExternalRecordDialog studentId={studentId} />}
+            <Button variant="outline" onClick={() => window.print()}>
+              <Printer className="size-4" /> Print
+            </Button>
+          </>
         }
       />
       {t.isPending ? (
@@ -395,7 +537,10 @@ export function MyTranscriptPage() {
 export function StudentTranscriptPage() {
   const { studentId = '' } = useParams();
   const canChange = useCan('grade:change');
-  return <TranscriptPage studentId={studentId} editable={canChange} />;
+  const canAddRecords = useCan('record:manage');
+  return (
+    <TranscriptPage studentId={studentId} editable={canChange} canAddRecords={canAddRecords} />
+  );
 }
 
 // ----- grade approvals --------------------------------------------------------------------------

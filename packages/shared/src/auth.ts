@@ -62,6 +62,8 @@ export interface MeDto {
     status: string;
     lastLoginAt: string | null;
     avatarUrl: string | null;
+    /** Two-factor sign-in is on for this account. */
+    mfaEnabled: boolean;
   };
   roles: RoleAssignmentDto[];
   /** Union of permissions across all assignments (scope details stay server-side). */
@@ -82,6 +84,16 @@ export interface LoginResultDto {
   accessTokenExpiresAt: string;
   me: MeDto;
 }
+
+/** Password accepted but the account uses two-factor sign-in: finish with /auth/mfa/verify. */
+export interface MfaChallengeDto {
+  mfaRequired: true;
+  challengeToken: string;
+  expiresAt: string;
+}
+export type LoginResponseDto = LoginResultDto | MfaChallengeDto;
+export const isMfaChallenge = (r: LoginResponseDto): r is MfaChallengeDto =>
+  'mfaRequired' in r && r.mfaRequired === true;
 
 export interface RefreshResultDto {
   accessToken: string;
@@ -109,3 +121,33 @@ export interface LoginAttemptDto {
 /** Cookie and header names shared by API and client. */
 export const AUTH_COOKIE = { refresh: 'ucrams_rt', csrf: 'ucrams_csrf' } as const;
 export const CSRF_HEADER = 'x-csrf-token';
+
+// ----- two-factor sign-in -----------------------------------------------------------
+
+/** A 6-digit authenticator code or a recovery code such as `7KQ2-M9XD`. */
+const mfaCode = z
+  .string()
+  .trim()
+  .min(6, 'Enter the 6-digit code')
+  .max(12, 'Enter the 6-digit code or a recovery code');
+
+export const mfaVerifySchema = z.object({ challengeToken: token, code: mfaCode });
+export type MfaVerifyInput = z.infer<typeof mfaVerifySchema>;
+export const mfaCodeSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Enter the 6-digit code from your app'),
+});
+export const mfaDisableSchema = z.object({
+  password: z.string().min(1, 'Password is required').max(PASSWORD_MAX_LENGTH),
+  code: mfaCode,
+});
+
+export interface MfaSetupDto {
+  secret: string;
+  otpauthUrl: string;
+}
+export interface MfaRecoveryCodesDto {
+  recoveryCodes: string[];
+}

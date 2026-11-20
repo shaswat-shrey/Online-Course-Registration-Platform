@@ -27,6 +27,11 @@ const account = lazyPage(async () => ({
 }));
 
 const crumb = (label: string): RouteHandle => ({ crumb: label });
+const documents = (portal: Portal) =>
+  lazyPage(async () => {
+    const { DocumentsPage } = await import('@/features/platform/pages/documents-page');
+    return { default: () => <DocumentsPage portal={portal} /> };
+  });
 
 /** Communication pages are shared by the portals; the portal decides links and labels. */
 const comm = (load: () => Promise<object>, name: string, portal: Portal) =>
@@ -98,6 +103,7 @@ function portalRoutes(portal: Portal, label: string, extra: RouteObject[] = []):
           { index: true, element: <HomeRedirect /> },
           { path: 'dashboard', lazy: overview(portal), handle: crumb('Overview') },
           { path: 'account', lazy: account, handle: crumb('Account security') },
+          { path: 'documents', lazy: documents(portal), handle: crumb('Documents') },
           ...extra,
         ],
       },
@@ -496,6 +502,30 @@ export const routes: RouteObject[] = [
                       })),
                     },
                   ],
+                },
+              ],
+            },
+            {
+              element: <RequirePermission permission="settings:manage" />,
+              children: [
+                {
+                  path: 'settings',
+                  handle: crumb('System settings'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/platform/pages/settings-page')).SettingsPage,
+                  })),
+                },
+              ],
+            },
+            {
+              element: <RequirePermission permission="jobs:read" />,
+              children: [
+                {
+                  path: 'jobs',
+                  handle: crumb('Background jobs'),
+                  lazy: lazyPage(async () => ({
+                    default: (await import('@/features/platform/pages/jobs-page')).JobsPage,
+                  })),
                 },
               ],
             },

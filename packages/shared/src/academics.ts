@@ -173,3 +173,33 @@ export const classroomAvailabilityQuerySchema = z.object({
   minCapacity: z.coerce.number().int().min(1).max(5000).optional(),
   type: z.string().max(40).optional(),
 });
+
+// ----- transfer credits and exemptions (FR-ACAD-007) ----------------------------------------
+
+export const externalRecordSchema = z
+  .object({
+    source: z.enum(['TRANSFER', 'EXEMPTION']),
+    courseId: z.uuid(),
+    /** Defaults to the course's credits. Exemptions may grant 0 credits (waiver only). */
+    credits: z.number().min(0).max(30).optional(),
+    /** Transfers may carry the external grade for the record; never counted in the GPA. */
+    gradeLetter: z
+      .string()
+      .trim()
+      .max(5)
+      .toUpperCase()
+      .nullish()
+      .transform((v) => v || null),
+    externalInstitution: z
+      .string()
+      .trim()
+      .max(200)
+      .nullish()
+      .transform((v) => v || null),
+    note: z.string().trim().min(5, 'Explain the basis (at least 5 characters)').max(500),
+  })
+  .refine((v) => v.source !== 'TRANSFER' || !!v.externalInstitution, {
+    path: ['externalInstitution'],
+    message: 'Name the institution the credit comes from',
+  });
+export type ExternalRecordInput = z.input<typeof externalRecordSchema>;

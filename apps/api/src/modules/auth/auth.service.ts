@@ -18,6 +18,7 @@ import {
   UnauthenticatedError,
 } from '../../common/exceptions/app-error.js';
 import { env } from '../../config/env.js';
+import { completeChallenge, createChallenge } from './mfa.service.js';
 import { prisma } from '../../infrastructure/database/prisma.js';
 import { enqueueEmail } from '../../infrastructure/email/outbox.js';
 import {
@@ -157,16 +158,34 @@ export async function login(input: Required<LoginInput>, meta: RequestMeta) {
       failedLoginCount: 0,
       lockoutCount: 0,
       lockedUntil: null,
-      lastLoginAt: now,
       ...(needsRehash(user.passwordHash)
         ? { passwordHash: await hashPassword(input.password) }
         : {}),
     },
   });
-  await recordAttempt(user.id, 'SUCCESS', meta);
-  const session = await createSession(user.id, input.rememberMe, meta);
-  const access = await issueAccessToken(user.id, session.sessionId);
-  const me = await getMe(user.id, session.sessionId);
+  // Two-factor accounts get a short-lived challenge instead of a session.
+  if (user.mfaEnabled) return createChallenge(user.id, input.rememberMe);
+  return finishLogin(user.id, input.rememberMe, meta);
+}
+
+/** Second step for two-factor accounts: the challenge plus a TOTP or recovery code. */
+export async function verifyMfaLogin(challengeToken: string, code: string, meta: RequestMeta) {
+  const challenge = await completeChallenge(challengeToken, code, meta);
+  const user = await prisma.user.findUnique({
+    where: { id: challenge.userId },
+    select: { status: true },
+  });
+  if (user?.status !== 'ACTIVE')
+    throw new AppError(403, ErrorCode.ACCOUNT_INACTIVE, 'This account is not active.');
+  return finishLogin(challenge.userId, challenge.rememberMe, meta);
+}
+
+async function finishLogin(userId: string, rememberMe: boolean, meta: RequestMeta) {
+  await prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+  await recordAttempt(userId, 'SUCCESS', meta);
+  const session = await createSession(userId, rememberMe, meta);
+  const access = await issueAccessToken(userId, session.sessionId);
+  const me = await getMe(userId, session.sessionId);
   return { ...access, refreshToken: session.refreshToken, refreshExpiresAt: session.expiresAt, me };
 }
 
@@ -224,6 +243,7 @@ export async function getMe(userId: string, sessionId: string): Promise<MeDto> {
       status: true,
       lastLoginAt: true,
       avatarFileId: true,
+      mfaEnabled: true,
       roles: {
         orderBy: { createdAt: 'asc' },
         select: {
@@ -247,6 +267,7 @@ export async function getMe(userId: string, sessionId: string): Promise<MeDto> {
       status: user.status,
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       avatarUrl: await avatarUrl(user.avatarFileId),
+      mfaEnabled: user.mfaEnabled,
     },
     roles: user.roles.map((r) => ({
       id: r.id,

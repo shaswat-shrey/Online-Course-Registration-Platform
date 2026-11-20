@@ -94,6 +94,7 @@ export async function accountSummary(userId: string) {
         lockedUntil: true,
         emailVerifiedAt: true,
         createdAt: true,
+        mfaEnabled: true,
       },
     }),
     prisma.session.count({ where: { userId, revokedAt: null, expiresAt: { gt: new Date() } } }),
@@ -104,6 +105,7 @@ export async function accountSummary(userId: string) {
     locked: !!user.lockedUntil && user.lockedUntil > new Date(),
     activated: !!user.emailVerifiedAt,
     activeSessions,
+    mfaEnabled: user.mfaEnabled,
     createdAt: user.createdAt.toISOString(),
   };
 }

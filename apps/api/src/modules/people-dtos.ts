@@ -10,6 +10,7 @@ export const accountDto = z
     locked: z.boolean(),
     activated: z.boolean(),
     activeSessions: z.number(),
+    mfaEnabled: z.boolean(),
     createdAt: z.string(),
   })
   .meta({ id: 'AccountSummary' });

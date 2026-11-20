@@ -4,6 +4,7 @@ export interface AccountSummary {
   locked: boolean;
   activated: boolean;
   activeSessions: number;
+  mfaEnabled: boolean;
   createdAt: string;
 }
 

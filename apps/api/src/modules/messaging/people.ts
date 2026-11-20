@@ -1,5 +1,6 @@
 import type { Portal } from '@ucrams/shared';
 import { prisma } from '../../infrastructure/database/prisma.js';
+import { getSetting } from '../platform/settings.service.js';
 
 /** What a user is to the communication rules (FR-COMM-002). */
 export interface Person {
@@ -129,6 +130,10 @@ export async function canContact(me: Person, them: Person): Promise<boolean> {
   if (me.isAdmin) return true;
   if (them.isAdmin) return !!me.faculty;
   if (me.faculty && them.student) return sharesCurrentSection(me.id, them.id);
-  if (me.student && them.faculty) return sharesCurrentSection(them.id, me.id);
+  if (me.student && them.faculty)
+    return (
+      (await getSetting('messaging.studentsContactAnyFaculty')) ||
+      sharesCurrentSection(them.id, me.id)
+    );
   return false;
 }

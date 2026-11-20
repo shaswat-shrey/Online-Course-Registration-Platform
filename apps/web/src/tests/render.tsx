@@ -18,6 +18,7 @@ export function makeMe(
       status: 'ACTIVE',
       lastLoginAt: null,
       avatarUrl: null,
+      mfaEnabled: false,
     },
     roles: [
       {

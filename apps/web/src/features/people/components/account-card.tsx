@@ -18,6 +18,7 @@ import {
   useAccountStatus,
   useResendInvite,
   useRevokeUserSessions,
+  useResetUserMfa,
   useUnlockUser,
 } from '../api/people-queries';
 import { ACCOUNT_STATUS_LABEL, type AccountSummary } from '../api/types';
@@ -97,6 +98,7 @@ export function AccountCard({
   const canSessions = useCan('user:revoke_sessions');
   const resend = useResendInvite(userId);
   const unlock = useUnlockUser(userId);
+  const resetMfa = useResetUserMfa(userId);
   const revoke = useRevokeUserSessions(userId);
   const done = (msg: string) => ({
     onSuccess: () => toast.success(msg),
@@ -127,6 +129,10 @@ export function AccountCard({
             },
             { label: 'Active sessions', value: account.activeSessions },
             {
+              label: 'Two-factor sign-in',
+              value: account.mfaEnabled ? <StatusBadge tone="success">On</StatusBadge> : 'Off',
+            },
+            {
               label: 'Locked out',
               value: account.locked ? <StatusBadge tone="warning">Locked</StatusBadge> : 'No',
             },
@@ -153,6 +159,19 @@ export function AccountCard({
               >
                 <Unlock className="size-4" /> Unlock
               </Button>
+            )}
+            {account.mfaEnabled && canManage && (
+              <ConfirmDialog
+                trigger={
+                  <Button variant="outline" size="sm">
+                    <KeyRound className="size-4" /> Reset two-factor
+                  </Button>
+                }
+                title="Turn off this person's two-factor sign-in?"
+                description="Use this when they lost their phone. They can sign in with their password and set it up again."
+                confirmLabel="Reset two-factor"
+                onConfirm={() => resetMfa.mutate(undefined, done('Two-factor sign-in reset'))}
+              />
             )}
             {account.activeSessions > 0 && canSessions && (
               <ConfirmDialog

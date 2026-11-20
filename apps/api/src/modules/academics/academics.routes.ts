@@ -10,6 +10,7 @@ import {
   attendanceSessionCreateSchema,
   attendanceSettingsSchema,
   classroomAvailabilityQuerySchema,
+  externalRecordSchema,
   finalGradesSchema,
   GRADE_SUBMISSION_STATUSES,
   gradeChangeSchema,
@@ -22,6 +23,7 @@ import { sendCreated, sendOk } from '../../common/http/response.js';
 import { successEnvelope } from '../../openapi/registry.js';
 import * as assessments from './assessments.service.js';
 import * as attendance from './attendance.service.js';
+import { addExternalRecord } from './external-records.service.js';
 import * as grades from './grades.service.js';
 import { classroomAvailability } from './timetable.service.js';
 import * as transcripts from './transcript.service.js';
@@ -631,6 +633,38 @@ defineRoute(
       res,
       await transcripts.studentTranscript(getActor(req), req.valid.params.id),
       'Transcript',
+    );
+  },
+);
+
+defineRoute(
+  academicsRouter,
+  {
+    method: 'post',
+    path: '/students/:id/records',
+    summary: 'Record a transfer credit or exemption (counts for progress, not GPA)',
+    tags,
+    access: { permission: 'record:manage' },
+    request: { params: idParamSchema, body: externalRecordSchema },
+    responses: {
+      201: {
+        description: 'Recorded',
+        schema: successEnvelope(
+          z.object({
+            id: z.uuid(),
+            course: z.string(),
+            credits: z.number(),
+            source: z.enum(['ENROLLMENT', 'TRANSFER', 'EXEMPTION']),
+          }),
+        ),
+      },
+    },
+  },
+  async (req, res) => {
+    sendCreated(
+      res,
+      await addExternalRecord(getActor(req), req.valid.params.id, req.valid.body),
+      'Record added',
     );
   },
 );

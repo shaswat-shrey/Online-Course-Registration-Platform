@@ -42,7 +42,7 @@ A full-stack platform for managing a university's academic structure, course cat
 
 - **Frontend:** React 19, TypeScript, Vite 8, React Router 8, TanStack Query, Zustand, Tailwind CSS 4, shadcn/ui, React Hook Form, Zod, Recharts, Socket.IO client, Axios
 - **Backend:** Node.js 24, Express 5, TypeScript 6, Prisma 7 (pg driver adapter), PostgreSQL, Redis, BullMQ, Socket.IO, Zod 4, OpenAPI 3.1 (zod-to-openapi) + Swagger UI, Pino
-- **Infrastructure:** Docker Compose (PostgreSQL, Redis, MinIO, Mailpit), Nginx
+- **Infrastructure:** Docker Compose (PostgreSQL, Redis, Mailpit), Nginx
 - **Testing:** Vitest, Supertest, React Testing Library + MSW, Playwright
 
 ## Repository layout
@@ -68,15 +68,15 @@ docs/            Project documentation
 
 Install these on the machine where you clone the repository:
 
-| Software                                                          | Version                                                                  | Why                                                                                         |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| [Git](https://git-scm.com/)                                       | any recent                                                               | Clone the repository                                                                        |
-| [Node.js](https://nodejs.org/)                                    | **22.12 or newer** (24 recommended, see `.nvmrc`) — includes **npm 10+** | Runs the API, worker, web build and tooling                                                 |
-| [PostgreSQL](https://www.postgresql.org/download/)                | **16 or newer** (17 recommended)                                         | Main database                                                                               |
-| [Redis](https://redis.io/download/)                               | **7 or newer**                                                           | Queues, caches, rate limits, real-time fan-out                                              |
-| Playwright Chromium                                               | installed by `npx playwright install chromium`                           | Only for end-to-end tests                                                                   |
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | optional                                                                 | Provides PostgreSQL, Redis, MinIO and Mailpit in one command, and the production-like stack |
-| [k6](https://k6.io/docs/get-started/installation/)                | optional                                                                 | Only for the registration load test                                                         |
+| Software                                                          | Version                                                                  | Why                                                                                  |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| [Git](https://git-scm.com/)                                       | any recent                                                               | Clone the repository                                                                 |
+| [Node.js](https://nodejs.org/)                                    | **22.12 or newer** (24 recommended, see `.nvmrc`) — includes **npm 10+** | Runs the API, worker, web build and tooling                                          |
+| [PostgreSQL](https://www.postgresql.org/download/)                | **16 or newer** (17 recommended)                                         | Main database                                                                        |
+| [Redis](https://redis.io/download/)                               | **7 or newer**                                                           | Queues, caches, rate limits, real-time fan-out                                       |
+| Playwright Chromium                                               | installed by `npx playwright install chromium`                           | Only for end-to-end tests                                                            |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | optional                                                                 | Provides PostgreSQL, Redis and Mailpit in one command, and the production-like stack |
+| [k6](https://k6.io/docs/get-started/installation/)                | optional                                                                 | Only for the registration load test                                                  |
 
 You do **not** install application libraries (React, Express, Prisma, …) by hand: `npm install` downloads every package listed in the `package.json` files.
 
@@ -142,7 +142,7 @@ All API variables are documented in [apps/api/.env.example](apps/api/.env.exampl
 
 Key choices for local development:
 
-- `STORAGE_DRIVER=local` stores files under `apps/api/storage/` and serves HMAC-signed URLs. Use `s3` with MinIO (`docker compose up`) for an S3-compatible setup.
+- `STORAGE_DRIVER=local` stores files under `apps/api/storage/` and serves HMAC-signed URLs. Use `s3` with any S3-compatible service (AWS S3, Cloudflare R2) in production.
 - `MAIL_TRANSPORT=log` renders emails and logs them without sending. Use `smtp` with Mailpit (http://localhost:8025) to inspect real messages.
 
 The web app reads `VITE_API_BASE_URL` (default `/api/v1`) and, in development, `VITE_API_PROXY_TARGET` (default `http://localhost:4000`).
@@ -171,7 +171,7 @@ docker compose --profile app up -d --build
 
 This builds the `api`, `worker` and `web` images, runs `prisma migrate deploy` as a one-off `migrate` service, and serves the app at http://localhost:8080 (Nginx serves the SPA and proxies `/api` and `/socket.io`). The containers run with `NODE_ENV=production`, so example secrets are rejected.
 
-Compose refuses to start the app profile until `JWT_ACCESS_SECRET` and `STORAGE_SIGNING_SECRET` are set. Create the first administrator with `docker compose --profile app run --rm -e BOOTSTRAP_ADMIN_EMAIL=… -e BOOTSTRAP_ADMIN_FIRST_NAME=… -e BOOTSTRAP_ADMIN_LAST_NAME=… api node apps/api/dist/bootstrap-admin.js`. Full production guidance (TLS, backups, monitoring, checklist): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Compose refuses to start the app profile until `JWT_ACCESS_SECRET`, `STORAGE_SIGNING_SECRET` and `MFA_ENCRYPTION_KEY` are set. Create the first administrator with `docker compose --profile app run --rm -e BOOTSTRAP_ADMIN_EMAIL=… -e BOOTSTRAP_ADMIN_FIRST_NAME=… -e BOOTSTRAP_ADMIN_LAST_NAME=… api node apps/api/dist/bootstrap-admin.js`. Full production guidance (TLS, backups, monitoring, checklist): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 > Docker was not available on the development machine, so the images and the Compose stack were validated by CI's image build and by running the compiled API and worker with the same production environment, not by `docker compose up` locally.
 
